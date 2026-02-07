@@ -1,0 +1,177 @@
+/*
+ * ADHD-Anim Library v1.0
+ * ========================
+ * A reusable animation system designed for ADHD-friendly micro-interactions.
+ * Drop this CSS + JS into any project for pop, fade, draw, slide, pulse,
+ * and attention-grabbing transitions on individual elements.
+ *
+ * Usage:
+ *   1. Add class "anim" to any element you want animated
+ *   2. Add a data-anim attribute: data-anim="pop" | "fade" | "slide-left" | "slide-right" | "slide-up" | "draw" | "bounce" | "glow" | "typewriter"
+ *   3. Optionally set data-delay="200" (ms) for staggered timing
+ *   4. Optionally set data-duration="600" (ms) for custom duration
+ *   5. Include adhd-anim.js — it auto-initializes on DOMContentLoaded
+ *
+ * The JS uses IntersectionObserver so elements animate when scrolled into view.
+ * Elements can also be triggered manually via AdhdAnim.trigger(element).
+ */
+
+/* ===== BASE STATE: Hidden before animation ===== */
+.anim {
+  opacity: 0;
+  will-change: transform, opacity;
+}
+
+/* ===== ANIMATED STATE ===== */
+.anim.anim--active {
+  opacity: 1;
+}
+
+/* ===== POP: Scale from 0 to full with overshoot ===== */
+.anim[data-anim="pop"] {
+  transform: scale(0);
+}
+.anim[data-anim="pop"].anim--active {
+  animation: adhd-pop var(--anim-duration, 600ms) cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+@keyframes adhd-pop {
+  0%   { opacity: 0; transform: scale(0); }
+  50%  { opacity: 1; transform: scale(1.15); }
+  70%  { transform: scale(0.95); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+/* ===== FADE: Simple opacity fade in ===== */
+.anim[data-anim="fade"] {
+  transform: translateY(10px);
+}
+.anim[data-anim="fade"].anim--active {
+  animation: adhd-fade var(--anim-duration, 500ms) ease-out forwards;
+}
+@keyframes adhd-fade {
+  0%   { opacity: 0; transform: translateY(10px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+/* ===== SLIDE-LEFT: Slide in from the left ===== */
+.anim[data-anim="slide-left"] {
+  transform: translateX(-80px);
+}
+.anim[data-anim="slide-left"].anim--active {
+  animation: adhd-slide-left var(--anim-duration, 600ms) cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+@keyframes adhd-slide-left {
+  0%   { opacity: 0; transform: translateX(-80px); }
+  100% { opacity: 1; transform: translateX(0); }
+}
+
+/* ===== SLIDE-RIGHT: Slide in from the right ===== */
+.anim[data-anim="slide-right"] {
+  transform: translateX(80px);
+}
+.anim[data-anim="slide-right"].anim--active {
+  animation: adhd-slide-right var(--anim-duration, 600ms) cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+@keyframes adhd-slide-right {
+  0%   { opacity: 0; transform: translateX(80px); }
+  100% { opacity: 1; transform: translateX(0); }
+}
+
+/* ===== SLIDE-UP: Slide in from below ===== */
+.anim[data-anim="slide-up"] {
+  transform: translateY(60px);
+}
+.anim[data-anim="slide-up"].anim--active {
+  animation: adhd-slide-up var(--anim-duration, 600ms) cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+@keyframes adhd-slide-up {
+  0%   { opacity: 0; transform: translateY(60px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+/* ===== BOUNCE: Drop in with bounce ===== */
+.anim[data-anim="bounce"] {
+  transform: translateY(-40px);
+}
+.anim[data-anim="bounce"].anim--active {
+  animation: adhd-bounce var(--anim-duration, 800ms) cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+@keyframes adhd-bounce {
+  0%   { opacity: 0; transform: translateY(-40px); }
+  40%  { opacity: 1; transform: translateY(8px); }
+  60%  { transform: translateY(-4px); }
+  80%  { transform: translateY(2px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+/* ===== DRAW: Border draws itself in (uses box-shadow trick) ===== */
+.anim[data-anim="draw"] {
+  transform: scale(0.97);
+  box-shadow: inset 0 0 0 0 currentColor;
+}
+.anim[data-anim="draw"].anim--active {
+  animation: adhd-draw var(--anim-duration, 700ms) ease-out forwards;
+}
+@keyframes adhd-draw {
+  0%   { opacity: 0; transform: scale(0.97); box-shadow: inset 0 0 0 0 rgba(0,0,0,0.3); }
+  30%  { opacity: 1; }
+  100% { opacity: 1; transform: scale(1); box-shadow: inset 0 0 0 3px rgba(0,0,0,0.3); }
+}
+
+/* ===== GLOW: Fade in with a brief glow pulse ===== */
+.anim[data-anim="glow"] {
+  transform: scale(0.98);
+}
+.anim[data-anim="glow"].anim--active {
+  animation: adhd-glow var(--anim-duration, 900ms) ease-out forwards;
+}
+@keyframes adhd-glow {
+  0%   { opacity: 0; transform: scale(0.98); filter: brightness(1); }
+  40%  { opacity: 1; transform: scale(1.02); filter: brightness(1.4); }
+  70%  { filter: brightness(1.1); }
+  100% { opacity: 1; transform: scale(1); filter: brightness(1); }
+}
+
+/* ===== TYPEWRITER: Clip-path reveal left to right ===== */
+.anim[data-anim="typewriter"] {
+  clip-path: inset(0 100% 0 0);
+}
+.anim[data-anim="typewriter"].anim--active {
+  animation: adhd-typewriter var(--anim-duration, 800ms) steps(20, end) forwards;
+}
+@keyframes adhd-typewriter {
+  0%   { opacity: 1; clip-path: inset(0 100% 0 0); }
+  100% { opacity: 1; clip-path: inset(0 0 0 0); }
+}
+
+/* ===== SVG LINE DRAW ===== */
+.anim-line {
+  opacity: 0;
+}
+.anim-line.anim--active {
+  opacity: 1;
+  animation: adhd-line-draw var(--anim-duration, 1000ms) ease-out forwards;
+  stroke-dashoffset: 0;
+}
+@keyframes adhd-line-draw {
+  0%   { stroke-dashoffset: var(--line-length, 1000); opacity: 0; }
+  5%   { opacity: 1; }
+  100% { stroke-dashoffset: 0; opacity: 1; }
+}
+
+/* ===== ATTENTION PULSE: Ongoing subtle pulse after animation ===== */
+.anim--attention {
+  animation: adhd-attention 2s ease-in-out infinite !important;
+  opacity: 1 !important;
+}
+@keyframes adhd-attention {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.03); box-shadow: 0 0 12px rgba(0,0,0,0.15); }
+}
+
+/* ===== HOVER MICRO-INTERACTION ===== */
+.anim--active:hover {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  transform: scale(1.04) !important;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+}

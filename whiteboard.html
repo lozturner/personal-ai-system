@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Personal AI System — Whiteboard</title>
+<link rel="stylesheet" href="adhd-anim-lib/adhd-anim.css">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400;600;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #f5f2eb;
+    font-family: 'Caveat', cursive;
+    overflow: auto;
+    min-height: 100vh;
+  }
+
+  .whiteboard {
+    position: relative;
+    width: 1600px;
+    min-height: 1200px;
+    margin: 20px auto;
+    background: #fff;
+    border: 3px solid #ccc;
+    border-radius: 8px;
+    box-shadow: 4px 6px 20px rgba(0,0,0,0.15);
+    overflow: hidden;
+  }
+
+  .whiteboard::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-image:
+      linear-gradient(rgba(0,0,0,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,0,0,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  svg#lines {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    pointer-events: none;
+  }
+
+  .node {
+    position: absolute;
+    z-index: 2;
+    cursor: default;
+  }
+
+  .node-box {
+    border: 3px solid #222;
+    border-radius: 12px;
+    padding: 12px 20px;
+    background: #fff;
+  }
+
+  .node-box.central {
+    border-width: 4px;
+    border-color: #000;
+    background: #222;
+    color: #fff;
+    border-radius: 50%;
+    width: 200px;
+    height: 200px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .node-box.domain {
+    border-color: #e65100;
+    border-width: 3px;
+    background: #fffde7;
+  }
+
+  .node-box.failure {
+    border-color: #c62828;
+    border-width: 3px;
+    background: #ffebee;
+  }
+
+  .node-box.principle {
+    border-color: #1565c0;
+    border-width: 3px;
+    background: #e3f2fd;
+  }
+
+  .node-box.arch {
+    border-color: #2e7d32;
+    border-width: 3px;
+    background: #e8f5e9;
+  }
+
+  .node-box.process {
+    border-color: #4a148c;
+    border-width: 3px;
+    background: #f3e5f5;
+  }
+
+  .node-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: inherit;
+    line-height: 1.2;
+  }
+
+  .node-detail {
+    font-size: 17px;
+    font-weight: 400;
+    color: #444;
+    margin-top: 4px;
+    line-height: 1.3;
+  }
+
+  .node-box.central .node-title {
+    font-size: 26px;
+    color: #fff;
+  }
+
+  .section-label {
+    position: absolute;
+    z-index: 3;
+    font-size: 16px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    font-family: 'Caveat', cursive;
+  }
+
+  .legend {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    z-index: 5;
+    font-size: 16px;
+    background: rgba(255,255,255,0.9);
+    border: 2px solid #ccc;
+    border-radius: 8px;
+    padding: 12px 16px;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+
+  .legend-swatch {
+    width: 20px;
+    height: 14px;
+    border: 2px solid;
+    border-radius: 4px;
+  }
+
+  .board-title {
+    position: absolute;
+    top: 16px;
+    left: 30px;
+    z-index: 5;
+    font-size: 32px;
+    font-weight: 700;
+    color: #222;
+    border-bottom: 3px solid #222;
+    padding-bottom: 4px;
+  }
+
+  .board-date {
+    position: absolute;
+    top: 20px;
+    right: 30px;
+    z-index: 5;
+    font-size: 20px;
+    color: #888;
+  }
+
+  /* Override anim hover for nodes specifically */
+  .node.anim.anim--active:hover .node-box {
+    box-shadow: 0 4px 20px rgba(0,0,0,0.18);
+    transition: box-shadow 0.2s ease;
+  }
+</style>
+</head>
+<body>
+
+<div class="whiteboard" id="wb">
+
+  <!-- Title & Date — typewriter reveal -->
+  <div class="board-title anim" data-anim="typewriter" data-delay="100" data-duration="1000">Personal AI System — Architecture Whiteboard</div>
+  <div class="board-date anim" data-anim="fade" data-delay="800">Feb 2026</div>
+
+  <svg id="lines" viewBox="0 0 1600 1200" preserveAspectRatio="none">
+    <defs>
+      <marker id="arrowBlack" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+        <polygon points="0 0, 10 3.5, 0 7" fill="#333"/>
+      </marker>
+      <marker id="arrowRed" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+        <polygon points="0 0, 10 3.5, 0 7" fill="#c62828"/>
+      </marker>
+      <marker id="arrowGreen" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+        <polygon points="0 0, 10 3.5, 0 7" fill="#2e7d32"/>
+      </marker>
+      <marker id="arrowBlue" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+        <polygon points="0 0, 10 3.5, 0 7" fill="#1565c0"/>
+      </marker>
+      <marker id="arrowPurple" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+        <polygon points="0 0, 10 3.5, 0 7" fill="#4a148c"/>
+      </marker>
+      <marker id="arrowOrange" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+        <polygon points="0 0, 10 3.5, 0 7" fill="#e65100"/>
+      </marker>
+    </defs>
+  </svg>
+
+  <!-- ==================== CENTRAL NODE — big pop ==================== -->
+  <div class="node anim" id="central" data-anim="pop" data-delay="300" data-duration="800" style="left: 700px; top: 110px;">
+    <div class="node-box central">
+      <div class="node-title">YOUR<br>SYSTEM</div>
+    </div>
+  </div>
+
+  <!-- ==================== SECTION LABELS — fade in ==================== -->
+  <div class="section-label anim" data-anim="fade" data-delay="1000" style="left: 30px; top: 75px; color: #c62828;">What Failed ✗</div>
+  <div class="section-label anim" data-anim="fade" data-delay="1100" style="left: 1200px; top: 75px; color: #2e7d32;">Architecture ✓</div>
+  <div class="section-label anim" data-anim="fade" data-delay="2800" style="left: 30px; top: 520px; color: #e65100;">Life Domains</div>
+  <div class="section-label anim" data-anim="fade" data-delay="2900" style="left: 1200px; top: 520px; color: #1565c0;">Design Principles</div>
+  <div class="section-label anim" data-anim="fade" data-delay="2200" style="left: 520px; top: 420px; color: #4a148c;">Process Flow — How It Actually Works</div>
+
+  <!-- ==================== FAILURES (top-left) — slide in from left, staggered ==================== -->
+  <div class="node anim" data-anim="slide-left" data-delay="1200" data-duration="500" id="f1" style="left: 30px; top: 110px;">
+    <div class="node-box failure">
+      <div class="node-title">Context Evaporation</div>
+      <div class="node-detail">Every session starts from zero.<br>You re-explain your life every time.</div>
+    </div>
+  </div>
+
+  <div class="node anim" data-anim="slide-left" data-delay="1400" data-duration="500" id="f2" style="left: 30px; top: 220px;">
+    <div class="node-box failure">
+      <div class="node-title">Hallucination & Drift</div>
+      <div class="node-detail">AI understanding degrades mid-conversation.<br>Lost in the middle. Nonsense outputs.</div>
+    </div>
+  </div>
+
+  <div class="node anim" data-anim="slide-left" data-delay="1600" data-duration="500" id="f3" style="left: 30px; top: 330px;">
+    <div class="node-box failure">
+      <div class="node-title">No Persistence</div>
+      <div class="node-detail">Plans generated but never lived anywhere.<br>Static docs, not living systems.</div>
+    </div>
+  </div>
+
+  <div class="node anim" data-anim="slide-left" data-delay="1800" data-duration="500" id="f4" style="left: 30px; top: 440px;">
+    <div class="node-box failure">
+      <div class="node-title">Implementation Burden on YOU</div>
+      <div class="node-detail">AI gives the "what" but not the "how".<br>ADHD makes this the hardest step.</div>
+    </div>
+  </div>
+
+  <!-- ==================== ARCHITECTURE (top-right) — slide in from right, staggered ==================== -->
+  <div class="node anim" data-anim="slide-right" data-delay="1300" data-duration="500" id="a1" style="left: 1200px; top: 110px;">
+    <div class="node-box arch">
+      <div class="node-title">Local-First Context</div>
+      <div class="node-detail">Your data lives on YOUR device.<br>Permanent. Not in the cloud's memory.</div>
+    </div>
+  </div>
+
+  <div class="node anim" data-anim="slide-right" data-delay="1500" data-duration="500" id="a2" style="left: 1200px; top: 220px;">
+    <div class="node-box arch">
+      <div class="node-title">Modular Snippets</div>
+      <div class="node-detail">Small context files, not one giant prompt.<br>Pulled in/out of LLM requests as needed.</div>
+    </div>
+  </div>
+
+  <div class="node anim" data-anim="slide-right" data-delay="1700" data-duration="500" id="a3" style="left: 1200px; top: 330px;">
+    <div class="node-box arch">
+      <div class="node-title">Agentic Snapshots</div>
+      <div class="node-detail">Agents scattered across the file system.<br>Each manages a domain of your life.</div>
+    </div>
+  </div>
+
+  <div class="node anim" data-anim="slide-right" data-delay="1900" data-duration="500" id="a4" style="left: 1200px; top: 440px;">
+    <div class="node-box arch">
+      <div class="node-title">Word-Limited Chunks</div>
+      <div class="node-detail">Each snippet respects token limits.<br>Fits inside any LLM context window.</div>
+    </div>
+  </div>
+
+  <!-- ==================== PROCESS FLOW (center) — bounce in, staggered ==================== -->
+  <div class="node anim" data-anim="bounce" data-delay="2300" data-duration="600" id="pf1" style="left: 520px; top: 470px;">
+    <div class="node-box process">
+      <div class="node-title">1. You Speak</div>
+      <div class="node-detail">Natural conversation.<br>Voice or text.</div>
+    </div>
+  </div>
+
+  <div class="node anim" data-anim="bounce" data-delay="2500" data-duration="600" id="pf2" style="left: 520px; top: 580px;">
+    <div class="node-box process">
+      <div class="node-title">2. System Selects Snippets</div>
+      <div class="node-detail">Relevant context files pulled<br>from your local file system.</div>
+    </div>
+  </div>
+
+  <div class="node anim" data-anim="bounce" data-delay="2700" data-duration="600" id="pf3" style="left: 520px; top: 690px;">
+    <div class="node-box process">
+      <div class="node-title">3. LLM Processes</div>
+      <div class="node-detail">Request sent with your context.<br>Stays within token limits.</div>
+    </div>
+  </div>
+
+  <div class="node anim" data-anim="bounce" data-delay="2900" data-duration="600" id="pf4" style="left: 520px; top: 800px;">
+    <div class="node-box process">
+      <div class="node-title">4. Response → Action</div>
+      <div class="node-detail">Output routed back to your system.<br>Updates files. Triggers tasks.</div>
+    </div>
+  </div>
+
+  <div class="node anim" data-anim="bounce" data-delay="3100" data-duration="600" id="pf5" style="left: 520px; top: 910px;">
+    <div class="node-box process">
+      <div class="node-title">5. Persistent State Updated</div>
+      <div class="node-detail">Your context files are updated.<br>Nothing lost. Ever.</div>
+    </div>
+  </div>
+
+  <!-- ==================== LIFE DOMAINS (bottom-left) — glow in, staggered ==================== -->
+  <div class="node anim" data-anim="glow" data-delay="2900" data-duration="700" id="d1" style="left: 30px; top: 580px;">
+    <div class="node-box domain">
+      <div class="node-title">🧠 ADHD Management</div>
+      <div class="node-detail">External executive function system.<br>Not tips. Actual scaffolding.</div>
+    </div>
+  </div>
+
+  <div class="node anim" data-anim="glow" data-delay="3100" data-duration="700" id="d2" style="left: 30px; top: 690px;">
+    <div class="node-box domain">
+      <div class="node-title">🏥 Health</div>
+      <div class="node-detail">Tracking, appointments, treatments.<br>Structured. Persistent. Actionable.</div>
+    </div>
+  </div>
+
+  <div class="node anim" data-anim="glow" data-delay="3300" data-duration="700" id="d3" style="left: 30px; top: 800px;">
+    <div class="node-box domain">
+      <div class="node-title">👨‍👧‍👦 Children & Family</div>
+      <div class="node-detail">Co-parenting, schedules, responsibilities.<br>The hardest domain. The most important.</div>
+    </div>
+  </div>
+
+  <div class="node anim" data-anim="glow" data-delay="3500" data-duration="700" id="d4" style="left: 30px; top: 910px;">
+    <div class="node-box domain">
+      <div class="node-title">❓ [Your Domain Here]</div>
+      <div class="node-detail">Space left intentionally blank.<br>You define what goes here.</div>
+    </div>
+  </div>
+
+  <!-- ==================== DESIGN PRINCIPLES (bottom-right) — draw in, staggered ==================== -->
+  <div class="node anim" data-anim="draw" data-delay="3000" data-duration="700" id="p1" style="left: 1200px; top: 580px;">
+    <div class="node-box principle">
+      <div class="node-title">No UX/UI Assumptions</div>
+      <div class="node-detail">You define the interface.<br>Not me. Not defaults. You.</div>
+    </div>
+  </div>
+
+  <div class="node anim" data-anim="draw" data-delay="3200" data-duration="700" id="p2" style="left: 1200px; top: 690px;">
+    <div class="node-box principle">
+      <div class="node-title">Reverse Engineer from Failure</div>
+      <div class="node-detail">Start from what broke.<br>Build the opposite.</div>
+    </div>
+  </div>
+
+  <div class="node anim" data-anim="draw" data-delay="3400" data-duration="700" id="p3" style="left: 1200px; top: 800px;">
+    <div class="node-box principle">
+      <div class="node-title">Conversation Still Works</div>
+      <div class="node-detail">Chat is the interface — but backed<br>by real memory and persistence.</div>
+    </div>
+  </div>
+
+  <div class="node anim" data-anim="draw" data-delay="3600" data-duration="700" id="p4" style="left: 1200px; top: 910px;">
+    <div class="node-box principle">
+      <div class="node-title">One-Click Execution</div>
+      <div class="node-detail">If it needs setup, it's already failed.<br>ADHD means zero friction or nothing.</div>
+    </div>
+  </div>
+
+  <!-- ==================== LEGEND — fade last ==================== -->
+  <div class="legend anim" data-anim="fade" data-delay="4000" data-duration="500">
+    <div class="legend-item"><div class="legend-swatch" style="border-color: #c62828; background: #ffebee;"></div> What Failed</div>
+    <div class="legend-item"><div class="legend-swatch" style="border-color: #2e7d32; background: #e8f5e9;"></div> Architecture</div>
+    <div class="legend-item"><div class="legend-swatch" style="border-color: #e65100; background: #fffde7;"></div> Life Domains</div>
+    <div class="legend-item"><div class="legend-swatch" style="border-color: #1565c0; background: #e3f2fd;"></div> Design Principles</div>
+    <div class="legend-item"><div class="legend-swatch" style="border-color: #4a148c; background: #f3e5f5;"></div> Process Flow</div>
+  </div>
+
+</div>
+
+<script src="adhd-anim-lib/adhd-anim.js"></script>
+<script>
+const wb = document.getElementById('wb');
+const svg = document.getElementById('lines');
+
+function getEdge(fromEl, toEl) {
+  const fr = fromEl.getBoundingClientRect();
+  const tr = toEl.getBoundingClientRect();
+  const wr = wb.getBoundingClientRect();
+
+  const fc = { x: fr.left - wr.left + fr.width/2, y: fr.top - wr.top + fr.height/2 };
+  const tc = { x: tr.left - wr.left + tr.width/2, y: tr.top - wr.top + tr.height/2 };
+
+  const dx = tc.x - fc.x;
+  const dy = tc.y - fc.y;
+  const angle = Math.atan2(dy, dx);
+
+  const fw = fr.width/2, fh = fr.height/2;
+  const fsx = Math.abs(fw / Math.cos(angle));
+  const fsy = Math.abs(fh / Math.sin(angle));
+  const fs = Math.min(fsx, fsy, Math.sqrt(fw*fw + fh*fh));
+
+  const tw = tr.width/2, th = tr.height/2;
+  const ra = angle + Math.PI;
+  const tsx = Math.abs(tw / Math.cos(ra));
+  const tsy = Math.abs(th / Math.sin(ra));
+  const ts = Math.min(tsx, tsy, Math.sqrt(tw*tw + th*th));
+
+  return {
+    x1: fc.x + Math.cos(angle) * fs,
+    y1: fc.y + Math.sin(angle) * fs,
+    x2: tc.x - Math.cos(angle) * ts,
+    y2: tc.y - Math.sin(angle) * ts
+  };
+}
+
+function createLine(x1, y1, x2, y2, color, dashed, markerUrl, delay, duration) {
+  const mx = (x1 + x2) / 2;
+  const my = (y1 + y2) / 2;
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const len = Math.sqrt(dx*dx + dy*dy);
+  const curve = len * 0.12;
+  const nx = -dy / len * curve;
+  const ny = dx / len * curve;
+
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  path.setAttribute('d', `M ${x1} ${y1} Q ${mx + nx} ${my + ny} ${x2} ${y2}`);
+  path.setAttribute('stroke', color);
+  path.setAttribute('stroke-width', '2.5');
+  path.setAttribute('fill', 'none');
+  path.setAttribute('stroke-linecap', 'round');
+  if (dashed) path.setAttribute('stroke-dasharray', '8,6');
+  if (markerUrl) path.setAttribute('marker-end', markerUrl);
+
+  // Add animation classes
+  path.classList.add('anim-line');
+  path.dataset.delay = String(delay);
+  path.dataset.duration = String(duration || 600);
+
+  svg.appendChild(path);
+  return path;
+}
+
+function createStraightLine(x1, y1, x2, y2, color, markerUrl, delay, duration) {
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  path.setAttribute('d', `M ${x1} ${y1} L ${x2} ${y2}`);
+  path.setAttribute('stroke', color);
+  path.setAttribute('stroke-width', '3');
+  path.setAttribute('fill', 'none');
+  path.setAttribute('stroke-linecap', 'round');
+  if (markerUrl) path.setAttribute('marker-end', markerUrl);
+
+  path.classList.add('anim-line');
+  path.dataset.delay = String(delay);
+  path.dataset.duration = String(duration || 400);
+
+  svg.appendChild(path);
+  return path;
+}
+
+function drawConnection(fromSel, toSel, color, dashed, markerUrl, delay, duration) {
+  const fromEl = document.querySelector(fromSel);
+  const toEl = document.querySelector(toSel);
+  if (!fromEl || !toEl) return;
+  const fromBox = fromEl.querySelector('.node-box') || fromEl;
+  const toBox = toEl.querySelector('.node-box') || toEl;
+  const e = getEdge(fromBox, toBox);
+  return createLine(e.x1, e.y1, e.x2, e.y2, color, dashed, markerUrl, delay, duration);
+}
+
+function drawStraightConnection(fromSel, toSel, color, markerUrl, delay, duration) {
+  const fromEl = document.querySelector(fromSel);
+  const toEl = document.querySelector(toSel);
+  if (!fromEl || !toEl) return;
+  const fromBox = fromEl.querySelector('.node-box') || fromEl;
+  const toBox = toEl.querySelector('.node-box') || toEl;
+  const e = getEdge(fromBox, toBox);
+  return createStraightLine(e.x1, e.y1, e.x2, e.y2, color, markerUrl, delay, duration);
+}
+
+function buildLines() {
+  // Failures → Central (dashed red, draw after failure nodes appear)
+  const centralSel = '#central';
+  drawConnection('#f1', centralSel, '#c62828', true, 'url(#arrowRed)', 2000, 600);
+  drawConnection('#f2', centralSel, '#c62828', true, 'url(#arrowRed)', 2100, 600);
+  drawConnection('#f3', centralSel, '#c62828', true, 'url(#arrowRed)', 2200, 600);
+  drawConnection('#f4', centralSel, '#c62828', true, 'url(#arrowRed)', 2300, 600);
+
+  // Architecture → Central (solid green)
+  drawConnection('#a1', centralSel, '#2e7d32', false, 'url(#arrowGreen)', 2050, 600);
+  drawConnection('#a2', centralSel, '#2e7d32', false, 'url(#arrowGreen)', 2150, 600);
+  drawConnection('#a3', centralSel, '#2e7d32', false, 'url(#arrowGreen)', 2250, 600);
+  drawConnection('#a4', centralSel, '#2e7d32', false, 'url(#arrowGreen)', 2350, 600);
+
+  // Process flow (straight purple arrows)
+  drawStraightConnection('#pf1', '#pf2', '#4a148c', 'url(#arrowPurple)', 2600, 400);
+  drawStraightConnection('#pf2', '#pf3', '#4a148c', 'url(#arrowPurple)', 2800, 400);
+  drawStraightConnection('#pf3', '#pf4', '#4a148c', 'url(#arrowPurple)', 3000, 400);
+  drawStraightConnection('#pf4', '#pf5', '#4a148c', 'url(#arrowPurple)', 3200, 400);
+
+  // Loop back from step 5 to central
+  drawConnection('#pf5', centralSel, '#4a148c', true, 'url(#arrowPurple)', 3400, 800);
+
+  // Re-init the animation library so it picks up the new SVG lines
+  if (window.AdhdAnim) {
+    window.AdhdAnim.init();
+    // Trigger all immediately since everything is in viewport
+    window.AdhdAnim.triggerAll();
+  }
+}
+
+window.addEventListener('load', function() {
+  // Set whiteboard height
+  let maxBottom = 0;
+  document.querySelectorAll('.node').forEach(function(n) {
+    const r = n.getBoundingClientRect();
+    const wr = wb.getBoundingClientRect();
+    const bottom = r.top - wr.top + r.height + 40;
+    if (bottom > maxBottom) maxBottom = bottom;
+  });
+  const h = Math.max(1200, maxBottom + 60);
+  wb.style.minHeight = h + 'px';
+  svg.setAttribute('viewBox', '0 0 1600 ' + h);
+
+  // Build SVG lines, then re-init animations
+  setTimeout(buildLines, 150);
+});
+</script>
+
+</body>
+</html>
