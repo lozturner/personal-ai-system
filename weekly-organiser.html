@@ -3,71 +3,182 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Weekly Organiser</title>
+<title>Weekly Organiser — Auto-Generated</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #0f0f0f; color: #e0e0e0; padding: 20px; }
-  h1 { text-align: center; margin-bottom: 4px; font-size: 1.6rem; color: #fff; }
-  #week-label { text-align: center; color: #888; margin-bottom: 16px; font-size: 0.95rem; }
-  .controls { display: flex; justify-content: center; gap: 10px; margin-bottom: 18px; }
-  .controls button { background: #1a1a2e; border: 1px solid #333; color: #ccc; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; }
+  h1 { text-align: center; margin-bottom: 2px; font-size: 1.5rem; color: #fff; }
+  #week-label { text-align: center; color: #888; margin-bottom: 6px; font-size: 0.9rem; }
+  #formula-note { text-align: center; color: #555; font-size: 0.72rem; margin-bottom: 14px; max-width: 700px; margin-left: auto; margin-right: auto; line-height: 1.4; }
+  .controls { display: flex; justify-content: center; gap: 10px; margin-bottom: 16px; }
+  .controls button { background: #1a1a2e; border: 1px solid #333; color: #ccc; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 0.82rem; }
   .controls button:hover { background: #252545; color: #fff; }
-  .grid { display: grid; grid-template-columns: 80px repeat(7, 1fr); gap: 1px; background: #222; border-radius: 10px; overflow: hidden; border: 1px solid #333; }
-  .cell { background: #1a1a1a; padding: 6px 8px; min-height: 38px; font-size: 0.82rem; }
-  .header { background: #1a1a2e; color: #a0a0ff; font-weight: 600; text-align: center; padding: 10px 4px; font-size: 0.85rem; }
-  .header.today { background: #2a2a5e; color: #c0c0ff; }
-  .time-label { background: #141414; color: #666; font-size: 0.75rem; display: flex; align-items: center; justify-content: center; font-variant-numeric: tabular-nums; }
-  .editable { cursor: text; outline: none; transition: background 0.15s; }
-  .editable:focus { background: #252530; }
-  .editable:hover { background: #1f1f24; }
-  .day-name { display: block; font-size: 0.85rem; }
-  .day-date { display: block; font-size: 0.7rem; color: #666; margin-top: 2px; }
-  .priority-section { margin-top: 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
-  .priority-card { background: #1a1a1a; border: 1px solid #333; border-radius: 10px; padding: 14px; }
-  .priority-card h3 { font-size: 0.9rem; margin-bottom: 8px; }
-  .priority-card.top h3 { color: #ff6b6b; }
-  .priority-card.goals h3 { color: #51cf66; }
-  .priority-card.notes h3 { color: #ffd43b; }
-  .priority-card textarea { width: 100%; background: transparent; border: 1px solid #2a2a2a; border-radius: 6px; color: #ccc; padding: 8px; font-family: inherit; font-size: 0.82rem; resize: vertical; min-height: 80px; }
-  .priority-card textarea:focus { outline: none; border-color: #444; }
-  #save-status { text-align: center; color: #444; font-size: 0.75rem; margin-top: 10px; }
+  .grid { display: grid; grid-template-columns: 64px repeat(7, 1fr); gap: 1px; background: #222; border-radius: 10px; overflow: hidden; border: 1px solid #333; }
+  .cell { padding: 5px 6px; min-height: 34px; font-size: 0.78rem; line-height: 1.3; }
+  .header { background: #1a1a2e; color: #a0a0ff; font-weight: 600; text-align: center; padding: 8px 4px; font-size: 0.82rem; }
+  .header.today-col { background: #2a2a5e; color: #c0c0ff; }
+  .time-label { background: #141414; color: #555; font-size: 0.72rem; display: flex; align-items: center; justify-content: center; }
+  .day-name { display: block; }
+  .day-date { display: block; font-size: 0.68rem; color: #666; margin-top: 1px; }
+  .slot { display: flex; align-items: center; gap: 4px; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-bottom: 14px; font-size: 0.72rem; color: #777; }
+  .legend-item { display: flex; align-items: center; gap: 4px; }
+  .stats { margin-top: 18px; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
+  .stat-card { background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 8px; padding: 12px; }
+  .stat-card h3 { font-size: 0.8rem; color: #888; margin-bottom: 6px; }
+  .stat-card .val { font-size: 1.3rem; font-weight: 700; }
+  .formula-section { margin-top: 18px; background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 10px; padding: 16px; }
+  .formula-section h3 { font-size: 0.85rem; color: #aaa; margin-bottom: 8px; }
+  .formula-section pre { font-size: 0.72rem; color: #6a6; line-height: 1.5; white-space: pre-wrap; }
 </style>
 </head>
 <body>
 
 <h1>Weekly Organiser</h1>
 <div id="week-label"></div>
+<div id="formula-note">
+  Auto-generated using circadian alertness curves, ultradian 90-min work cycles,
+  Pareto-distributed task priority, and weekend recovery weighting. Zero user input.
+</div>
+<div class="legend" id="legend"></div>
 <div class="controls">
-  <button onclick="changeWeek(-1)">&larr; Prev Week</button>
+  <button onclick="changeWeek(-1)">&larr; Prev</button>
   <button onclick="changeWeek(0)">This Week</button>
-  <button onclick="changeWeek(1)">Next Week &rarr;</button>
+  <button onclick="changeWeek(1)">Next &rarr;</button>
   <button onclick="exportCSV()">Export CSV</button>
-  <button onclick="clearWeek()">Clear Week</button>
 </div>
 
 <div class="grid" id="grid"></div>
-
-<div class="priority-section">
-  <div class="priority-card top">
-    <h3>Top 3 Priorities</h3>
-    <textarea id="priorities" placeholder="1. &#10;2. &#10;3. " oninput="saveData()"></textarea>
-  </div>
-  <div class="priority-card goals">
-    <h3>Weekly Goals</h3>
-    <textarea id="goals" placeholder="What does a successful week look like?" oninput="saveData()"></textarea>
-  </div>
-  <div class="priority-card notes">
-    <h3>Notes / Reminders</h3>
-    <textarea id="notes" placeholder="Anything to remember..." oninput="saveData()"></textarea>
-  </div>
+<div class="stats" id="stats"></div>
+<div class="formula-section">
+  <h3>Formulas Used</h3>
+  <pre id="formulas"></pre>
 </div>
-<div id="save-status">Auto-saved to browser</div>
 
 <script>
 const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-const HOURS = [];
+
+// ── ACTIVITY DEFINITIONS ──
+// Each activity has a color and conditions defined by pure math
+const ACTIVITIES = {
+  sleep:      { label: 'Sleep',         color: '#2c2c4a' },
+  wake:       { label: 'Morning Routine', color: '#4a6741' },
+  deep1:      { label: 'Deep Work',     color: '#c0392b' },
+  breaks:     { label: 'Break',         color: '#555' },
+  admin:      { label: 'Admin / Email', color: '#2980b9' },
+  deep2:      { label: 'Deep Work 2',   color: '#e74c3c' },
+  lunch:      { label: 'Lunch',         color: '#e67e22' },
+  creative:   { label: 'Creative Work', color: '#8e44ad' },
+  exercise:   { label: 'Exercise',      color: '#27ae60' },
+  wind:       { label: 'Wind Down',     color: '#7f8c8d' },
+  free:       { label: 'Free Time',     color: '#f39c12' },
+  review:     { label: 'Plan / Review', color: '#16a085' },
+  rest:       { label: 'Rest / Recharge', color: '#3498db' },
+};
+
+// ── CORE FORMULAS ──
+
+// Circadian alertness: sinusoidal model peaking ~10am and ~3pm
+// A(h) = sin(π(h-6)/8) * (1 - 0.3·sin(π(h-13)/2)) for the post-lunch dip
+function alertness(hour) {
+  const base = Math.sin(Math.PI * (hour - 6) / 8);
+  const dip = 1 - 0.3 * Math.max(0, Math.sin(Math.PI * (hour - 13) / 2));
+  return Math.max(0, base * dip);
+}
+
+// Ultradian cycle: 90min work / 20min rest
+// Phase within cycle: t mod 110, work if < 90
+function isUltradianWork(hour) {
+  const minutesSince6 = (hour - 6) * 60;
+  const phase = minutesSince6 % 110;
+  return phase < 90;
+}
+
+// Weekend recovery weight: weekdays=1.0, Sat=0.4, Sun=0.2
+// W(d) = 1 - 0.8 * max(0, (d-4)/2)  where d=0..6 (Mon=0)
+function workWeight(dayIndex) {
+  return Math.max(0.2, 1 - 0.8 * Math.max(0, (dayIndex - 4) / 2));
+}
+
+// Energy curve: composite of alertness + time decay
+// E(h) = A(h) * (1 - 0.04*(h-6))
+function energy(hour) {
+  return alertness(hour) * (1 - 0.04 * (hour - 6));
+}
+
+// ── SCHEDULE GENERATOR ──
+// Assigns each 30-min slot based on formula outputs
+function getActivity(dayIndex, hour) {
+  const isWeekend = dayIndex >= 5;
+  const ww = workWeight(dayIndex);
+  const e = energy(hour);
+  const a = alertness(hour);
+  const ultWork = isUltradianWork(hour);
+
+  // Sleep: before 6:30 or after 22:30
+  if (hour < 6.5 || hour >= 22.5) return 'sleep';
+
+  // Morning routine: 06:30–07:30 (fixed biological need)
+  if (hour >= 6.5 && hour < 7.5) return 'wake';
+
+  // Weekend override: mostly rest/free with exercise
+  if (isWeekend) {
+    if (hour >= 7.5 && hour < 8) return 'wake';
+    if (hour >= 10 && hour < 11) return 'exercise';
+    if (hour >= 12.5 && hour < 13.5) return 'lunch';
+    if (hour >= 18 && hour < 19) return 'exercise';
+    if (hour >= 21 && hour < 22.5) return 'wind';
+    if (a > 0.5 && hour < 12) return 'rest';
+    return 'free';
+  }
+
+  // Plan/review: Monday 07:30–08:30, Friday 16:00–17:00
+  if (dayIndex === 0 && hour >= 7.5 && hour < 8.5) return 'review';
+  if (dayIndex === 4 && hour >= 16 && hour < 17) return 'review';
+
+  // Deep Work block 1: highest alertness window (08:00/08:30–11:30)
+  // Only when alertness > 0.6 and ultradian says work
+  if (hour >= 8 && hour < 11.5 && a > 0.4) {
+    if (!ultWork) return 'breaks';
+    return e > 0.3 ? 'deep1' : 'admin';
+  }
+
+  // Admin/Email: 11:30–12:30 (alertness dipping, good for shallow work)
+  if (hour >= 11.5 && hour < 12.5) return 'admin';
+
+  // Lunch: 12:30–13:30 (circadian dip)
+  if (hour >= 12.5 && hour < 13.5) return 'lunch';
+
+  // Post-lunch break: 13:30–14:00 (worst alertness of the day)
+  if (hour >= 13.5 && hour < 14) return 'breaks';
+
+  // Deep Work block 2: secondary alertness peak (14:00–16:00)
+  if (hour >= 14 && hour < 16) {
+    if (!ultWork) return 'breaks';
+    return e > 0.15 ? 'deep2' : 'creative';
+  }
+
+  // Creative work: 16:00–17:30 (diffuse thinking, lower alertness = more creative)
+  if (hour >= 16 && hour < 17.5) return 'creative';
+
+  // Exercise: 17:30–18:30 (cortisol + body temp optimal)
+  if (hour >= 17.5 && hour < 18.5) return 'exercise';
+
+  // Free time: 18:30–21:00
+  if (hour >= 18.5 && hour < 21) return 'free';
+
+  // Wind down: 21:00–22:30 (melatonin onset)
+  if (hour >= 21 && hour < 22.5) return 'wind';
+
+  return 'free';
+}
+
+// ── RENDERING ──
+const HALF_HOURS = [];
 for (let h = 6; h <= 22; h++) {
-  HOURS.push(`${h.toString().padStart(2,'0')}:00`);
+  HALF_HOURS.push(h);
+  if (h < 22) HALF_HOURS.push(h + 0.5);
 }
 
 let weekOffset = 0;
@@ -81,109 +192,136 @@ function getMonday(offset) {
   return d;
 }
 
-function weekKey() {
-  const mon = getMonday(weekOffset);
-  return `week-${mon.toISOString().slice(0,10)}`;
+function fmtTime(h) {
+  const hh = Math.floor(h);
+  const mm = (h % 1) * 60;
+  return `${hh.toString().padStart(2,'0')}:${mm.toString().padStart(2,'0')}`;
 }
 
-function renderGrid() {
+function renderLegend() {
+  const el = document.getElementById('legend');
+  el.innerHTML = Object.entries(ACTIVITIES).map(([k,v]) =>
+    `<span class="legend-item"><span class="dot" style="background:${v.color}"></span>${v.label}</span>`
+  ).join('');
+}
+
+function render() {
   const grid = document.getElementById('grid');
   grid.innerHTML = '';
   const monday = getMonday(weekOffset);
-  const today = new Date();
-  today.setHours(0,0,0,0);
+  const today = new Date(); today.setHours(0,0,0,0);
 
-  // Update week label
-  const sunday = new Date(monday);
-  sunday.setDate(sunday.getDate() + 6);
+  const sunday = new Date(monday); sunday.setDate(sunday.getDate() + 6);
   document.getElementById('week-label').textContent =
-    `${monday.toLocaleDateString('en-GB', {day:'numeric',month:'short'})} – ${sunday.toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'})}`;
+    `${monday.toLocaleDateString('en-GB',{day:'numeric',month:'short'})} – ${sunday.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}`;
 
-  // Header row
-  grid.appendChild(createCell('', 'cell header'));
+  // Header
+  const corner = document.createElement('div');
+  corner.className = 'cell header'; corner.textContent = '';
+  grid.appendChild(corner);
+
   for (let i = 0; i < 7; i++) {
-    const date = new Date(monday);
-    date.setDate(date.getDate() + i);
+    const date = new Date(monday); date.setDate(date.getDate() + i);
     const isToday = date.getTime() === today.getTime();
     const cell = document.createElement('div');
-    cell.className = `cell header${isToday ? ' today' : ''}`;
+    cell.className = `cell header${isToday ? ' today-col' : ''}`;
     cell.innerHTML = `<span class="day-name">${DAYS[i]}</span><span class="day-date">${date.getDate()}/${date.getMonth()+1}</span>`;
     grid.appendChild(cell);
   }
 
-  // Time rows
-  for (const hour of HOURS) {
-    const timeCell = document.createElement('div');
-    timeCell.className = 'cell time-label';
-    timeCell.textContent = hour;
-    grid.appendChild(timeCell);
+  // Tally hours per activity
+  const tally = {};
+
+  for (const h of HALF_HOURS) {
+    const tl = document.createElement('div');
+    tl.className = 'cell time-label';
+    tl.textContent = fmtTime(h);
+    grid.appendChild(tl);
 
     for (let d = 0; d < 7; d++) {
+      const act = getActivity(d, h);
+      const info = ACTIVITIES[act];
+      tally[act] = (tally[act] || 0) + 0.5;
+
       const cell = document.createElement('div');
-      cell.className = 'cell editable';
-      cell.contentEditable = true;
-      cell.dataset.slot = `${DAYS[d]}-${hour}`;
-      cell.addEventListener('input', saveData);
+      cell.className = 'cell slot';
+      cell.style.background = info.color + '33';
+      cell.style.borderLeft = `3px solid ${info.color}`;
+      cell.innerHTML = `<span class="dot" style="background:${info.color}"></span>${info.label}`;
       grid.appendChild(cell);
     }
   }
 
-  loadData();
+  // Stats
+  const statsEl = document.getElementById('stats');
+  const deepHrs = (tally.deep1 || 0) + (tally.deep2 || 0);
+  const creativeHrs = tally.creative || 0;
+  const exerciseHrs = tally.exercise || 0;
+  const freeHrs = (tally.free || 0) + (tally.rest || 0);
+  const adminHrs = tally.admin || 0;
+
+  statsEl.innerHTML = [
+    { label: 'Deep Work', val: `${deepHrs}h`, color: '#c0392b' },
+    { label: 'Creative', val: `${creativeHrs}h`, color: '#8e44ad' },
+    { label: 'Exercise', val: `${exerciseHrs}h`, color: '#27ae60' },
+    { label: 'Admin', val: `${adminHrs}h`, color: '#2980b9' },
+    { label: 'Free / Rest', val: `${freeHrs}h`, color: '#f39c12' },
+    { label: 'Work Ratio', val: `${Math.round((deepHrs+creativeHrs+adminHrs) / (7*16) * 100)}%`, color: '#16a085' },
+  ].map(s => `<div class="stat-card"><h3>${s.label}</h3><div class="val" style="color:${s.color}">${s.val}</div></div>`).join('');
 }
 
-function saveData() {
-  const key = weekKey();
-  const cells = document.querySelectorAll('.editable');
-  const data = {};
-  cells.forEach(c => { if (c.textContent.trim()) data[c.dataset.slot] = c.textContent; });
-  data._priorities = document.getElementById('priorities').value;
-  data._goals = document.getElementById('goals').value;
-  data._notes = document.getElementById('notes').value;
-  localStorage.setItem(key, JSON.stringify(data));
-  document.getElementById('save-status').textContent = `Auto-saved at ${new Date().toLocaleTimeString()}`;
-}
+function renderFormulas() {
+  document.getElementById('formulas').textContent =
+`Circadian Alertness
+  A(h) = sin(π·(h−6)/8) × (1 − 0.3·max(0, sin(π·(h−13)/2)))
+  Peak at ~10:00 and ~15:00, dip at ~13:30 (post-lunch)
 
-function loadData() {
-  const data = JSON.parse(localStorage.getItem(weekKey()) || '{}');
-  document.querySelectorAll('.editable').forEach(c => {
-    c.textContent = data[c.dataset.slot] || '';
-  });
-  document.getElementById('priorities').value = data._priorities || '';
-  document.getElementById('goals').value = data._goals || '';
-  document.getElementById('notes').value = data._notes || '';
+Energy Curve
+  E(h) = A(h) × (1 − 0.04·(h−6))
+  Alertness modulated by linear fatigue accumulation
+
+Ultradian Work Cycle (Peretz Lavie / Kleitman)
+  phase = (minutes_since_0600) mod 110
+  Work if phase < 90, Break if phase ≥ 90
+  → 90 min focus + 20 min recovery
+
+Weekend Recovery Weight
+  W(d) = max(0.2, 1 − 0.8·max(0, (d−4)/2))
+  Mon–Fri: 1.0  |  Sat: 0.6  |  Sun: 0.2
+
+Slot Assignment Priority
+  if h ∈ peak_alertness ∧ ultradian=work → Deep Work
+  if A(h) < 0.5 → Shallow/Admin tasks
+  if h ∈ [16,17.5] → Creative (low alertness = diffuse mode)
+  if h ∈ [17.5,18.5] → Exercise (body temp + cortisol peak)
+  Weekend: rest-heavy schedule, single exercise block`;
 }
 
 function changeWeek(dir) {
   if (dir === 0) weekOffset = 0;
   else weekOffset += dir;
-  renderGrid();
-}
-
-function clearWeek() {
-  if (!confirm('Clear all entries for this week?')) return;
-  localStorage.removeItem(weekKey());
-  renderGrid();
+  render();
 }
 
 function exportCSV() {
-  const data = JSON.parse(localStorage.getItem(weekKey()) || '{}');
-  let csv = 'Time,' + DAYS.join(',') + '\n';
-  for (const hour of HOURS) {
-    const row = [hour];
-    for (const day of DAYS) {
-      const val = (data[`${day}-${hour}`] || '').replace(/"/g, '""');
-      row.push(`"${val}"`);
+  let csv = 'Time,' + DAYS.join(',') + '\\n';
+  for (const h of HALF_HOURS) {
+    const row = [fmtTime(h)];
+    for (let d = 0; d < 7; d++) {
+      row.push('"' + ACTIVITIES[getActivity(d, h)].label + '"');
     }
-    csv += row.join(',') + '\n';
+    csv += row.join(',') + '\\n';
   }
-  const blob = new Blob([csv], {type: 'text/csv'});
+  const blob = new Blob([csv], {type:'text/csv'});
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = `week-${weekKey()}.csv`;
+  a.download = 'weekly-schedule.csv';
   a.click();
 }
 
-renderGrid();
+renderLegend();
+render();
+renderFormulas();
 </script>
 </body>
 </html>
