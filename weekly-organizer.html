@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Weekly Organizer Sheet</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f0f2f5; padding: 20px; color: #1a1a2e; }
+  h1 { text-align: center; margin-bottom: 6px; font-size: 1.6rem; }
+  .subtitle { text-align: center; color: #666; margin-bottom: 18px; font-size: 0.9rem; }
+  .week-nav { display: flex; justify-content: center; align-items: center; gap: 16px; margin-bottom: 18px; }
+  .week-nav button { background: #4361ee; color: #fff; border: none; border-radius: 6px; padding: 6px 14px; cursor: pointer; font-size: 0.85rem; }
+  .week-nav button:hover { background: #3a56d4; }
+  .week-nav span { font-weight: 600; font-size: 1rem; min-width: 220px; text-align: center; }
+
+  /* Legend */
+  .legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-bottom: 14px; font-size: 0.78rem; }
+  .legend-item { display: flex; align-items: center; gap: 4px; }
+  .legend-dot { width: 12px; height: 12px; border-radius: 3px; }
+
+  /* Sheet */
+  .sheet-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.08); min-width: 960px; }
+  th { background: #4361ee; color: #fff; padding: 10px 6px; font-size: 0.8rem; font-weight: 600; text-align: center; position: sticky; top: 0; }
+  th.time-col { width: 70px; }
+  th.day-col { width: calc((100% - 70px - 120px) / 7); }
+  th.totals-col { width: 120px; background: #3a0ca3; }
+  td { border: 1px solid #e8e8e8; padding: 4px 5px; text-align: center; font-size: 0.78rem; height: 36px; vertical-align: middle; }
+  td.time-cell { background: #f8f9fa; font-weight: 600; color: #555; font-size: 0.75rem; }
+  td.totals-cell { background: #f3f0ff; font-weight: 600; font-size: 0.8rem; }
+  td.editable { cursor: pointer; position: relative; }
+  td.editable:hover { background: #f0f4ff; }
+  td.editable:focus { outline: 2px solid #4361ee; outline-offset: -2px; background: #fff; }
+
+  /* Event type colors */
+  .evt-work { background: #dbeafe; color: #1e40af; }
+  .evt-meeting { background: #fce7f3; color: #9d174d; }
+  .evt-personal { background: #d1fae5; color: #065f46; }
+  .evt-health { background: #fef3c7; color: #92400e; }
+  .evt-learn { background: #e0e7ff; color: #3730a3; }
+  .evt-break { background: #f3f4f6; color: #6b7280; }
+  .evt-free { background: #fff; color: #aaa; font-style: italic; }
+
+  /* Summary section */
+  .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-top: 20px; }
+  .summary-card { background: #fff; border-radius: 8px; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+  .summary-card h3 { font-size: 0.85rem; color: #666; margin-bottom: 8px; }
+  .summary-card .val { font-size: 1.6rem; font-weight: 700; }
+  .summary-card .sub { font-size: 0.75rem; color: #888; margin-top: 4px; }
+  .bar-row { display: flex; align-items: center; gap: 6px; margin: 4px 0; font-size: 0.75rem; }
+  .bar-label { width: 70px; text-align: right; }
+  .bar-track { flex: 1; height: 14px; background: #f0f0f0; border-radius: 7px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 7px; transition: width 0.3s; }
+  .bar-val { width: 36px; font-weight: 600; }
+
+  /* Formula display */
+  .formula-bar { background: #1a1a2e; color: #a5f3fc; padding: 10px 16px; border-radius: 8px; margin-top: 20px; font-family: 'Courier New', monospace; font-size: 0.8rem; line-height: 1.7; }
+  .formula-bar .label { color: #fbbf24; font-weight: 600; }
+
+  select.evt-select { border: none; background: transparent; font-size: 0.78rem; width: 100%; text-align: center; cursor: pointer; padding: 2px; }
+  select.evt-select:focus { outline: none; }
+</style>
+</head>
+<body>
+
+<h1>Weekly Organizer Sheet</h1>
+<p class="subtitle">Click any cell to assign an event type. Formulas auto-calculate totals and scores.</p>
+
+<div class="week-nav">
+  <button onclick="changeWeek(-1)">&larr; Prev</button>
+  <span id="weekLabel"></span>
+  <button onclick="changeWeek(1)">Next &rarr;</button>
+</div>
+
+<div class="legend" id="legend"></div>
+
+<div class="sheet-wrap">
+  <table id="sheet">
+    <thead><tr id="headerRow"></tr></thead>
+    <tbody id="sheetBody"></tbody>
+    <tfoot id="sheetFoot"></tfoot>
+  </table>
+</div>
+
+<div class="summary" id="summary"></div>
+
+<div class="formula-bar" id="formulaBar"></div>
+
+<script>
+// ── Event Types with Quantified Values ──
+const EVENT_TYPES = {
+  free:     { label: '—',         color: '#ccc',    energy: 0, productivity: 0, cssClass: 'evt-free' },
+  work:     { label: 'Deep Work', color: '#3b82f6', energy: -2, productivity: 5, cssClass: 'evt-work' },
+  meeting:  { label: 'Meeting',   color: '#ec4899', energy: -3, productivity: 3, cssClass: 'evt-meeting' },
+  personal: { label: 'Personal',  color: '#10b981', energy: 1, productivity: 0, cssClass: 'evt-personal' },
+  health:   { label: 'Health',    color: '#f59e0b', energy: 3, productivity: 0, cssClass: 'evt-health' },
+  learn:    { label: 'Learning',  color: '#6366f1', energy: -1, productivity: 4, cssClass: 'evt-learn' },
+  break:    { label: 'Break',     color: '#9ca3af', energy: 2, productivity: 0, cssClass: 'evt-break' }
+};
+
+const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const START_HOUR = 7;
+const END_HOUR = 22;
+const HOURS = [];
+for (let h = START_HOUR; h <= END_HOUR; h++) HOURS.push(h);
+
+let currentWeekStart = getMonday(new Date());
+let grid = {}; // grid[`${day}-${hour}`] = eventTypeKey
+
+function getMonday(d) {
+  d = new Date(d);
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  d.setDate(diff);
+  d.setHours(0,0,0,0);
+  return d;
+}
+
+function weekKey() {
+  return currentWeekStart.toISOString().slice(0, 10);
+}
+
+function loadGrid() {
+  const saved = localStorage.getItem('week_' + weekKey());
+  grid = saved ? JSON.parse(saved) : {};
+}
+
+function saveGrid() {
+  localStorage.setItem('week_' + weekKey(), JSON.stringify(grid));
+}
+
+function cellKey(dayIdx, hour) { return `${dayIdx}-${hour}`; }
+
+function changeWeek(offset) {
+  currentWeekStart.setDate(currentWeekStart.getDate() + 7 * offset);
+  loadGrid();
+  render();
+}
+
+function formatDate(d) {
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+// ── Build Legend ──
+function buildLegend() {
+  const el = document.getElementById('legend');
+  el.innerHTML = Object.entries(EVENT_TYPES).filter(([k]) => k !== 'free').map(([k, v]) =>
+    `<div class="legend-item"><div class="legend-dot" style="background:${v.color}"></div>
+     ${v.label} <span style="color:#888">(E:${v.energy > 0 ? '+' : ''}${v.energy} P:${v.productivity})</span></div>`
+  ).join('');
+}
+
+// ── Render Sheet ──
+function render() {
+  // Week label
+  const end = new Date(currentWeekStart);
+  end.setDate(end.getDate() + 6);
+  document.getElementById('weekLabel').textContent =
+    `${formatDate(currentWeekStart)} — ${formatDate(end)}, ${currentWeekStart.getFullYear()}`;
+
+  // Header
+  const hr = document.getElementById('headerRow');
+  hr.innerHTML = `<th class="time-col">Time</th>` +
+    DAYS.map((d, i) => {
+      const dt = new Date(currentWeekStart);
+      dt.setDate(dt.getDate() + i);
+      return `<th class="day-col">${d}<br><span style="font-weight:400;font-size:0.7rem">${formatDate(dt)}</span></th>`;
+    }).join('') +
+    `<th class="totals-col">Row Totals</th>`;
+
+  // Body
+  const body = document.getElementById('sheetBody');
+  body.innerHTML = '';
+  HOURS.forEach(h => {
+    const tr = document.createElement('tr');
+    const timeLabel = `${h % 12 || 12}${h < 12 ? 'am' : 'pm'}`;
+    tr.innerHTML = `<td class="time-cell">${timeLabel}</td>`;
+
+    DAYS.forEach((_, di) => {
+      const key = cellKey(di, h);
+      const val = grid[key] || 'free';
+      const evt = EVENT_TYPES[val];
+      const td = document.createElement('td');
+      td.className = `editable ${evt.cssClass}`;
+
+      const sel = document.createElement('select');
+      sel.className = 'evt-select';
+      Object.entries(EVENT_TYPES).forEach(([k, v]) => {
+        const opt = document.createElement('option');
+        opt.value = k;
+        opt.textContent = v.label;
+        if (k === val) opt.selected = true;
+        sel.appendChild(opt);
+      });
+      sel.addEventListener('change', () => {
+        grid[key] = sel.value;
+        saveGrid();
+        render();
+      });
+      td.appendChild(sel);
+      tr.appendChild(td);
+    });
+
+    // Row total: productivity sum for this hour across all days
+    const rowProd = DAYS.reduce((sum, _, di) => {
+      const v = grid[cellKey(di, h)] || 'free';
+      return sum + EVENT_TYPES[v].productivity;
+    }, 0);
+    tr.innerHTML += `<td class="totals-cell">${rowProd > 0 ? rowProd + ' pts' : '—'}</td>`;
+    body.appendChild(tr);
+  });
+
+  // Footer: column totals
+  const foot = document.getElementById('sheetFoot');
+  foot.innerHTML = '';
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td class="time-cell" style="font-weight:700">Totals</td>`;
+  let weekTotalProd = 0;
+  DAYS.forEach((_, di) => {
+    let dayProd = 0, dayEnergy = 0, dayHours = 0;
+    HOURS.forEach(h => {
+      const v = grid[cellKey(di, h)] || 'free';
+      const evt = EVENT_TYPES[v];
+      dayProd += evt.productivity;
+      dayEnergy += evt.energy;
+      if (v !== 'free') dayHours++;
+    });
+    weekTotalProd += dayProd;
+    tr.innerHTML += `<td class="totals-cell" style="font-size:0.72rem">
+      ${dayHours}h booked<br>${dayProd} prod<br>E: ${dayEnergy >= 0 ? '+' : ''}${dayEnergy}
+    </td>`;
+  });
+  tr.innerHTML += `<td class="totals-cell" style="background:#e0d4ff;font-size:0.9rem">${weekTotalProd} pts</td>`;
+  foot.appendChild(tr);
+
+  renderSummary();
+  renderFormulas();
+}
+
+// ── Summary Cards ──
+function renderSummary() {
+  const counts = {};
+  let totalEnergy = 0, totalProd = 0, totalBooked = 0;
+  Object.keys(EVENT_TYPES).forEach(k => counts[k] = 0);
+
+  DAYS.forEach((_, di) => {
+    HOURS.forEach(h => {
+      const v = grid[cellKey(di, h)] || 'free';
+      counts[v]++;
+      totalEnergy += EVENT_TYPES[v].energy;
+      totalProd += EVENT_TYPES[v].productivity;
+      if (v !== 'free') totalBooked++;
+    });
+  });
+
+  const totalSlots = DAYS.length * HOURS.length;
+  const utilization = ((totalBooked / totalSlots) * 100).toFixed(0);
+
+  // Energy balance status
+  let energyStatus, energyColor;
+  if (totalEnergy > 5) { energyStatus = 'Well Rested'; energyColor = '#10b981'; }
+  else if (totalEnergy >= -5) { energyStatus = 'Balanced'; energyColor = '#f59e0b'; }
+  else { energyStatus = 'Overloaded'; energyColor = '#ef4444'; }
+
+  const el = document.getElementById('summary');
+  el.innerHTML = `
+    <div class="summary-card">
+      <h3>Productivity Score</h3>
+      <div class="val">${totalProd}</div>
+      <div class="sub">= SUM(each_slot_productivity_value)</div>
+    </div>
+    <div class="summary-card">
+      <h3>Energy Balance</h3>
+      <div class="val" style="color:${energyColor}">${totalEnergy >= 0 ? '+' : ''}${totalEnergy}</div>
+      <div class="sub">${energyStatus} &mdash; SUM(each_slot_energy_value)</div>
+    </div>
+    <div class="summary-card">
+      <h3>Utilization</h3>
+      <div class="val">${utilization}%</div>
+      <div class="sub">${totalBooked}h booked / ${totalSlots}h available</div>
+    </div>
+    <div class="summary-card">
+      <h3>Hours Breakdown</h3>
+      ${Object.entries(EVENT_TYPES).filter(([k]) => k !== 'free').map(([k, v]) => {
+        const pct = ((counts[k] / totalSlots) * 100).toFixed(0);
+        return `<div class="bar-row">
+          <span class="bar-label">${v.label}</span>
+          <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${v.color}"></div></div>
+          <span class="bar-val">${counts[k]}h</span>
+        </div>`;
+      }).join('')}
+    </div>
+  `;
+}
+
+// ── Formula Reference ──
+function renderFormulas() {
+  document.getElementById('formulaBar').innerHTML = `
+    <div><span class="label">EVENT_VALUE:</span> Each event type has quantified values → { energy: int, productivity: int }</div>
+    <div><span class="label">CELL_VALUE:</span> = EVENT_TYPES[selected_type]</div>
+    <div><span class="label">ROW_TOTAL:</span> = SUM(productivity) for all 7 days at hour H</div>
+    <div><span class="label">COL_TOTAL_PROD:</span> = SUM(productivity) for all hours in day D</div>
+    <div><span class="label">COL_TOTAL_ENERGY:</span> = SUM(energy) for all hours in day D</div>
+    <div><span class="label">WEEK_SCORE:</span> = SUM(all_cell_productivity) across entire grid</div>
+    <div><span class="label">UTILIZATION:</span> = COUNT(non-free cells) / TOTAL_SLOTS * 100</div>
+    <div><span class="label">ENERGY_STATUS:</span> = IF(energy > 5, "Well Rested", IF(energy >= -5, "Balanced", "Overloaded"))</div>
+  `;
+}
+
+// ── Init ──
+buildLegend();
+loadGrid();
+render();
+</script>
+</body>
+</html>
