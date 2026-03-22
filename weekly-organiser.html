@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Weekly Organiser</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #0f0f0f; color: #e0e0e0; padding: 20px; }
+  h1 { text-align: center; margin-bottom: 4px; font-size: 1.6rem; color: #fff; }
+  #week-label { text-align: center; color: #888; margin-bottom: 16px; font-size: 0.95rem; }
+  .controls { display: flex; justify-content: center; gap: 10px; margin-bottom: 18px; }
+  .controls button { background: #1a1a2e; border: 1px solid #333; color: #ccc; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; }
+  .controls button:hover { background: #252545; color: #fff; }
+  .grid { display: grid; grid-template-columns: 80px repeat(7, 1fr); gap: 1px; background: #222; border-radius: 10px; overflow: hidden; border: 1px solid #333; }
+  .cell { background: #1a1a1a; padding: 6px 8px; min-height: 38px; font-size: 0.82rem; }
+  .header { background: #1a1a2e; color: #a0a0ff; font-weight: 600; text-align: center; padding: 10px 4px; font-size: 0.85rem; }
+  .header.today { background: #2a2a5e; color: #c0c0ff; }
+  .time-label { background: #141414; color: #666; font-size: 0.75rem; display: flex; align-items: center; justify-content: center; font-variant-numeric: tabular-nums; }
+  .editable { cursor: text; outline: none; transition: background 0.15s; }
+  .editable:focus { background: #252530; }
+  .editable:hover { background: #1f1f24; }
+  .day-name { display: block; font-size: 0.85rem; }
+  .day-date { display: block; font-size: 0.7rem; color: #666; margin-top: 2px; }
+  .priority-section { margin-top: 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+  .priority-card { background: #1a1a1a; border: 1px solid #333; border-radius: 10px; padding: 14px; }
+  .priority-card h3 { font-size: 0.9rem; margin-bottom: 8px; }
+  .priority-card.top h3 { color: #ff6b6b; }
+  .priority-card.goals h3 { color: #51cf66; }
+  .priority-card.notes h3 { color: #ffd43b; }
+  .priority-card textarea { width: 100%; background: transparent; border: 1px solid #2a2a2a; border-radius: 6px; color: #ccc; padding: 8px; font-family: inherit; font-size: 0.82rem; resize: vertical; min-height: 80px; }
+  .priority-card textarea:focus { outline: none; border-color: #444; }
+  #save-status { text-align: center; color: #444; font-size: 0.75rem; margin-top: 10px; }
+</style>
+</head>
+<body>
+
+<h1>Weekly Organiser</h1>
+<div id="week-label"></div>
+<div class="controls">
+  <button onclick="changeWeek(-1)">&larr; Prev Week</button>
+  <button onclick="changeWeek(0)">This Week</button>
+  <button onclick="changeWeek(1)">Next Week &rarr;</button>
+  <button onclick="exportCSV()">Export CSV</button>
+  <button onclick="clearWeek()">Clear Week</button>
+</div>
+
+<div class="grid" id="grid"></div>
+
+<div class="priority-section">
+  <div class="priority-card top">
+    <h3>Top 3 Priorities</h3>
+    <textarea id="priorities" placeholder="1. &#10;2. &#10;3. " oninput="saveData()"></textarea>
+  </div>
+  <div class="priority-card goals">
+    <h3>Weekly Goals</h3>
+    <textarea id="goals" placeholder="What does a successful week look like?" oninput="saveData()"></textarea>
+  </div>
+  <div class="priority-card notes">
+    <h3>Notes / Reminders</h3>
+    <textarea id="notes" placeholder="Anything to remember..." oninput="saveData()"></textarea>
+  </div>
+</div>
+<div id="save-status">Auto-saved to browser</div>
+
+<script>
+const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const HOURS = [];
+for (let h = 6; h <= 22; h++) {
+  HOURS.push(`${h.toString().padStart(2,'0')}:00`);
+}
+
+let weekOffset = 0;
+
+function getMonday(offset) {
+  const d = new Date();
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  d.setDate(diff + (offset * 7));
+  d.setHours(0,0,0,0);
+  return d;
+}
+
+function weekKey() {
+  const mon = getMonday(weekOffset);
+  return `week-${mon.toISOString().slice(0,10)}`;
+}
+
+function renderGrid() {
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '';
+  const monday = getMonday(weekOffset);
+  const today = new Date();
+  today.setHours(0,0,0,0);
+
+  // Update week label
+  const sunday = new Date(monday);
+  sunday.setDate(sunday.getDate() + 6);
+  document.getElementById('week-label').textContent =
+    `${monday.toLocaleDateString('en-GB', {day:'numeric',month:'short'})} – ${sunday.toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'})}`;
+
+  // Header row
+  grid.appendChild(createCell('', 'cell header'));
+  for (let i = 0; i < 7; i++) {
+    const date = new Date(monday);
+    date.setDate(date.getDate() + i);
+    const isToday = date.getTime() === today.getTime();
+    const cell = document.createElement('div');
+    cell.className = `cell header${isToday ? ' today' : ''}`;
+    cell.innerHTML = `<span class="day-name">${DAYS[i]}</span><span class="day-date">${date.getDate()}/${date.getMonth()+1}</span>`;
+    grid.appendChild(cell);
+  }
+
+  // Time rows
+  for (const hour of HOURS) {
+    const timeCell = document.createElement('div');
+    timeCell.className = 'cell time-label';
+    timeCell.textContent = hour;
+    grid.appendChild(timeCell);
+
+    for (let d = 0; d < 7; d++) {
+      const cell = document.createElement('div');
+      cell.className = 'cell editable';
+      cell.contentEditable = true;
+      cell.dataset.slot = `${DAYS[d]}-${hour}`;
+      cell.addEventListener('input', saveData);
+      grid.appendChild(cell);
+    }
+  }
+
+  loadData();
+}
+
+function saveData() {
+  const key = weekKey();
+  const cells = document.querySelectorAll('.editable');
+  const data = {};
+  cells.forEach(c => { if (c.textContent.trim()) data[c.dataset.slot] = c.textContent; });
+  data._priorities = document.getElementById('priorities').value;
+  data._goals = document.getElementById('goals').value;
+  data._notes = document.getElementById('notes').value;
+  localStorage.setItem(key, JSON.stringify(data));
+  document.getElementById('save-status').textContent = `Auto-saved at ${new Date().toLocaleTimeString()}`;
+}
+
+function loadData() {
+  const data = JSON.parse(localStorage.getItem(weekKey()) || '{}');
+  document.querySelectorAll('.editable').forEach(c => {
+    c.textContent = data[c.dataset.slot] || '';
+  });
+  document.getElementById('priorities').value = data._priorities || '';
+  document.getElementById('goals').value = data._goals || '';
+  document.getElementById('notes').value = data._notes || '';
+}
+
+function changeWeek(dir) {
+  if (dir === 0) weekOffset = 0;
+  else weekOffset += dir;
+  renderGrid();
+}
+
+function clearWeek() {
+  if (!confirm('Clear all entries for this week?')) return;
+  localStorage.removeItem(weekKey());
+  renderGrid();
+}
+
+function exportCSV() {
+  const data = JSON.parse(localStorage.getItem(weekKey()) || '{}');
+  let csv = 'Time,' + DAYS.join(',') + '\n';
+  for (const hour of HOURS) {
+    const row = [hour];
+    for (const day of DAYS) {
+      const val = (data[`${day}-${hour}`] || '').replace(/"/g, '""');
+      row.push(`"${val}"`);
+    }
+    csv += row.join(',') + '\n';
+  }
+  const blob = new Blob([csv], {type: 'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `week-${weekKey()}.csv`;
+  a.click();
+}
+
+renderGrid();
+</script>
+</body>
+</html>
