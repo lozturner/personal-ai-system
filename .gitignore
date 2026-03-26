@@ -1,0 +1,22 @@
+# Virtual environment
+venv/
+
+# Environment variables (contains API keys)
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Logs and recordings
+voice_dispatch/logs/
+voice_dispatch/models/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+Thumbs.db
+.DS_Store

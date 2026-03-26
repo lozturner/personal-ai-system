@@ -1,0 +1,38 @@
+# Voice Dispatch System — Python Dependencies
+# Install with: pip install -r requirements.txt
+# For PyTorch with CUDA: see install.ps1 or install manually first
+
+# SIP / VoIP
+pyVoIP==1.6.8
+
+# Speech-to-Text
+faster-whisper==1.1.0
+ctranslate2>=4.0.0
+
+# Text-to-Speech (primary)
+coqui-tts==0.27.5
+
+# Text-to-Speech (fallback — Windows SAPI)
+pyttsx3>=2.98
+
+# Voice Activity Detection (loaded via torch.hub, no separate pip package)
+# silero-vad is downloaded automatically on first use
+
+# Anthropic Claude API
+anthropic>=0.86.0
+
+# Audio processing
+numpy>=1.26.0,<2.0.0
+sounddevice>=0.5.0
+
+# PyTorch — install SEPARATELY with CUDA support:
+#   pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu121
+# For CPU-only:
+#   pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+# DO NOT uncomment these — they'll install CPU-only from PyPI:
+# torch>=2.1.0
+# torchaudio>=2.1.0
+
+# Python 3.13+ compatibility (audioop was removed)
+# Uncomment if using Python 3.13+:
+# audioop-lts>=0.2.1
