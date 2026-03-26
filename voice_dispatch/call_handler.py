@@ -52,6 +52,7 @@ class CallHandler:
         self.brain = brain
         self.tts = tts
         self._active_calls = 0
+        self._speaking = False  # True while TTS is playing — mutes mic input
 
     def handle_call(self, call):
         """Main call handler — called by pyVoIP when a call comes in.
@@ -101,6 +102,11 @@ class CallHandler:
 
                     # Log raw audio
                     session.add_audio(raw_audio)
+
+                    # MUTE: skip processing while TTS is playing back
+                    # This prevents the system from "hearing itself"
+                    if self._speaking:
+                        continue
 
                     # Convert SIP format → processing format
                     pcm16 = sip_to_pcm16(raw_audio)
@@ -177,6 +183,7 @@ class CallHandler:
             return
 
         try:
+            self._speaking = True  # Mute mic during playback
             start = time.time()
 
             # Synthesize
@@ -213,6 +220,9 @@ class CallHandler:
 
         except Exception as e:
             logger.error(f"TTS playback error: {e}", exc_info=True)
+        finally:
+            self._speaking = False  # Unmute mic
+            self.vad.reset()  # Clear any buffered noise from playback
 
     def handle_greeting_call(self, call):
         """Handle the auto-call greeting (outbound call to user's phone)."""

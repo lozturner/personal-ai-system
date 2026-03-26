@@ -51,16 +51,14 @@ PHONE_PASSWORD = "phone123"
 # Anthropic
 # ---------------------------------------------------------------------------
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
-CLAUDE_MODEL = os.environ.get("CLAUDE_MODEL", "claude-sonnet-4-6")
+# Haiku is 10x cheaper and ~3x faster than Sonnet — ideal for voice
+CLAUDE_MODEL = os.environ.get("CLAUDE_MODEL", "claude-haiku-4-5-20251001")
 
-SYSTEM_PROMPT = """You are Loz's voice dispatch AI. You run on his home PC.
-He calls you from his phone while out and about.
-- Be concise. He's on a phone call, not reading a screen.
-- Speak naturally, like a competent personal assistant.
-- If he gives you a task, confirm it clearly and briefly.
-- Remember the full conversation within this call.
-- If something is unclear, ask one short question.
-- Never say you can't do something — find the nearest useful action."""
+SYSTEM_PROMPT = """You are Loz's voice dispatch AI running on his home PC.
+He calls from his phone while out. This is a PHONE CALL — keep every
+response under 2 sentences. No filler. No "certainly" or "of course".
+Just answer directly. If unclear, ask one short question.
+Remember the full conversation within this call."""
 
 # ---------------------------------------------------------------------------
 # Speech-to-Text (faster-whisper)
@@ -82,7 +80,8 @@ TTS_FALLBACK = True  # fall back to pyttsx3 if Coqui fails
 # ---------------------------------------------------------------------------
 VAD_THRESHOLD = float(os.environ.get("VAD_THRESHOLD", "0.5"))
 # Seconds of silence before we consider the user done speaking
-SILENCE_TIMEOUT = float(os.environ.get("SILENCE_TIMEOUT", "1.5"))
+# 0.8s is snappy for voice — 1.5s feels sluggish on a call
+SILENCE_TIMEOUT = float(os.environ.get("SILENCE_TIMEOUT", "0.8"))
 
 # ---------------------------------------------------------------------------
 # Auto-call — ring the user's phone when system starts

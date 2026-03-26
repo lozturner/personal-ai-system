@@ -68,14 +68,17 @@ class Brain:
 
         start = time.time()
         try:
-            response = self.client.messages.create(
+            # Stream response — get first tokens faster
+            assistant_text = ""
+            with self.client.messages.stream(
                 model=CLAUDE_MODEL,
-                max_tokens=300,  # Keep responses phone-call-brief
+                max_tokens=150,  # Voice responses must be SHORT
                 system=SYSTEM_PROMPT,
                 messages=self.conversation,
-            )
+            ) as stream:
+                for text in stream.text_stream:
+                    assistant_text += text
 
-            assistant_text = response.content[0].text
             elapsed = time.time() - start
 
             self.conversation.append({
