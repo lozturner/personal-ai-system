@@ -156,15 +156,22 @@ class VoiceDispatchSystem:
         # 5. Start pyVoIP phone
         self._start_voip()
 
-        # 6. If phone already registered while we were loading, auto-call now
-        if AUTO_CALL_ON_START and self.registrar.is_extension_registered(PHONE_EXTENSION):
-            logger.info("Phone already registered — triggering auto-call")
-            threading.Thread(target=self._auto_call, daemon=True).start()
+        # 6. Wait for phone to connect, then call it
+        if AUTO_CALL_ON_START:
+            # Also set the callback for future registrations
+            self.registrar.set_phone_registered_callback(self._auto_call)
 
-        logger.info("System ready. Waiting for calls...")
-        print(f"\n✓ System is LIVE. Call {LAN_IP} from your phone.")
-        print(f"  Phone extension: {PHONE_EXTENSION} / password: phone123")
-        print(f"  Dial extension {DISPATCH_EXTENSION} to reach the AI.\n")
+            if self.registrar.is_extension_registered(PHONE_EXTENSION):
+                logger.info("Phone already connected — calling you now")
+                threading.Thread(target=self._auto_call, daemon=True).start()
+            else:
+                print(f"\n  Waiting for your phone to connect...")
+                print(f"  Open Linphone on your phone. It will ring automatically.\n")
+                # Poll for phone registration every 5 seconds
+                threading.Thread(target=self._wait_for_phone, daemon=True).start()
+        else:
+            print(f"\n✓ System is LIVE. Call {LAN_IP} from your phone.")
+            print(f"  Dial extension {DISPATCH_EXTENSION} to reach the AI.\n")
 
         # Wait for shutdown
         self._shutdown.wait()
@@ -276,6 +283,19 @@ class VoiceDispatchSystem:
         except Exception as e:
             logger.error(f"Failed to start pyVoIP: {e}", exc_info=True)
             raise
+
+    def _wait_for_phone(self):
+        """Poll for phone registration and auto-call when found."""
+        dots = 0
+        while not self._shutdown.is_set():
+            if self.registrar.is_extension_registered(PHONE_EXTENSION):
+                print(f"\n  Phone connected! Calling you now...")
+                self._auto_call()
+                return
+            dots += 1
+            if dots % 6 == 0:  # every 30 seconds
+                print(f"  Still waiting for phone... (open Linphone)")
+            time.sleep(5)
 
     def _on_incoming_call(self, call):
         """Called by pyVoIP when a SIP call comes in."""
