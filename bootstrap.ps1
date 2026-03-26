@@ -37,7 +37,9 @@ param(
     [switch]$SkipFirewall
 )
 
-$ErrorActionPreference = "Stop"
+# Use Continue, not Stop — Python libraries write warnings to stderr
+# which PowerShell treats as terminating errors under "Stop" mode
+$ErrorActionPreference = "Continue"
 $ProjectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 # ═══════════════════════════════════════════════════════════════════
