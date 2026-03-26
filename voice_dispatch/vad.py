@@ -37,11 +37,19 @@ class VoiceActivityDetector:
         if self._loaded:
             return
         logger.info("Loading Silero VAD model...")
-        self.model, _ = torch.hub.load(
-            repo_or_dir="snakers4/silero-vad",
-            model="silero_vad",
-            trust_repo=True,
-        )
+        # Use pip package (silero-vad) instead of torch.hub.load
+        # to avoid Windows path bug (RuntimeError errno 2)
+        try:
+            from silero_vad import load_silero_vad
+            self.model = load_silero_vad()
+        except ImportError:
+            # Fallback to torch.hub if pip package not installed
+            logger.warning("silero-vad pip package not found, using torch.hub")
+            self.model, _ = torch.hub.load(
+                repo_or_dir="snakers4/silero-vad",
+                model="silero_vad",
+                trust_repo=True,
+            )
         self.model.eval()
         self._loaded = True
         logger.info("Silero VAD loaded")

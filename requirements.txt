@@ -6,7 +6,7 @@
 pyVoIP==1.6.8
 
 # Speech-to-Text
-faster-whisper==1.1.0
+faster-whisper==1.2.1
 ctranslate2>=4.0.0
 
 # Text-to-Speech (primary)
@@ -15,8 +15,8 @@ coqui-tts==0.27.5
 # Text-to-Speech (fallback — Windows SAPI)
 pyttsx3>=2.98
 
-# Voice Activity Detection (loaded via torch.hub, no separate pip package)
-# silero-vad is downloaded automatically on first use
+# Voice Activity Detection (pip package avoids Windows torch.hub path bug)
+silero-vad>=6.0.0
 
 # Anthropic Claude API
 anthropic>=0.86.0
