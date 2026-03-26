@@ -69,6 +69,38 @@ def setup_logging():
 logger = logging.getLogger("dispatch.main")
 
 
+def _kill_port_holders():
+    """Kill any processes holding our SIP/RTP ports from a previous run."""
+    import subprocess
+    try:
+        result = subprocess.run(
+            ["netstat", "-ano"], capture_output=True, text=True, timeout=5
+        )
+        pids = set()
+        for line in result.stdout.splitlines():
+            if ":5060 " in line or ":5062 " in line:
+                parts = line.split()
+                if parts:
+                    try:
+                        pid = int(parts[-1])
+                        if pid != 0 and pid != os.getpid():
+                            pids.add(pid)
+                    except ValueError:
+                        pass
+        for pid in pids:
+            try:
+                subprocess.run(["taskkill", "/F", "/PID", str(pid)],
+                             capture_output=True, timeout=5)
+                logger.info(f"Killed stale process on SIP port (PID {pid})")
+            except Exception:
+                pass
+        if pids:
+            import time
+            time.sleep(1)  # Let ports free up
+    except Exception:
+        pass
+
+
 # ---------------------------------------------------------------------------
 # Main startup
 # ---------------------------------------------------------------------------
@@ -103,6 +135,9 @@ class VoiceDispatchSystem:
         print(banner)
         logger.info("Starting Voice Dispatch System...")
 
+        # 0. Kill any stale processes holding our ports
+        _kill_port_holders()
+
         # 1. Start SIP Registrar + set auto-call callback EARLY
         #    (phone may register before models finish loading)
         self._start_registrar()
@@ -115,10 +150,13 @@ class VoiceDispatchSystem:
         # 3. Create call handler
         self.call_handler = CallHandler(self.vad, self.stt, self.brain, self.tts)
 
-        # 4. Start pyVoIP phone
+        # 4. Quick TTS sanity test — make sure voice works before first call
+        self._test_tts()
+
+        # 5. Start pyVoIP phone
         self._start_voip()
 
-        # 5. If phone already registered while we were loading, auto-call now
+        # 6. If phone already registered while we were loading, auto-call now
         if AUTO_CALL_ON_START and self.registrar.is_extension_registered(PHONE_EXTENSION):
             logger.info("Phone already registered — triggering auto-call")
             threading.Thread(target=self._auto_call, daemon=True).start()
@@ -174,6 +212,23 @@ class VoiceDispatchSystem:
             print(f"\n⚠ {len(errors)} model(s) failed to load. Check logs.")
         else:
             logger.info("All models loaded successfully")
+
+    def _test_tts(self):
+        """Synthesize a short test phrase to verify TTS works."""
+        try:
+            logger.info("Testing TTS output...")
+            audio, rate = self.tts.synthesize("Ready.")
+            if len(audio) > 0:
+                from voice_dispatch.audio_utils import tts_float_to_sip
+                sip = tts_float_to_sip(audio, source_rate=rate)
+                logger.info(
+                    f"TTS test OK: {len(audio)} samples at {rate}Hz → "
+                    f"{len(sip)} SIP bytes, range=[{audio.min():.2f}, {audio.max():.2f}]"
+                )
+            else:
+                logger.error("TTS test FAILED: produced empty audio")
+        except Exception as e:
+            logger.error(f"TTS test FAILED: {e}", exc_info=True)
 
     def _start_voip(self):
         """Start pyVoIP phone and register with our SIP registrar."""
@@ -234,37 +289,38 @@ class VoiceDispatchSystem:
         thread.start()
 
     def _auto_call(self):
-        """Auto-call the user's phone when it registers."""
+        """Auto-call the user's phone when it registers. Retries up to 3 times."""
         logger.info("Phone registered! Waiting for system to be ready...")
 
-        # Wait for pyVoIP and call handler to be ready (models may still be loading)
-        for _ in range(60):  # wait up to 60 seconds
+        # Wait for pyVoIP and call handler to be ready
+        for _ in range(60):
             if self.phone is not None and self.call_handler is not None:
                 break
             time.sleep(1)
 
-        time.sleep(2)  # Give everything a moment to settle
+        time.sleep(3)  # Let SIP registration settle
 
-        try:
-            if self.phone is None:
-                logger.warning("pyVoIP phone not ready for auto-call after 60s")
-                return
+        if self.phone is None:
+            logger.warning("pyVoIP phone not ready for auto-call after 60s")
+            return
 
-            # Call the phone extension
-            call = self.phone.call(PHONE_EXTENSION)
-            if call:
-                logger.info("Auto-call initiated")
-                thread = threading.Thread(
-                    target=self.call_handler.handle_greeting_call,
-                    args=(call,),
-                    daemon=True,
-                )
-                thread.start()
-            else:
-                logger.warning("Auto-call returned no call object")
+        # Try auto-call up to 3 times
+        for attempt in range(1, 4):
+            try:
+                logger.info(f"Auto-call attempt {attempt}/3...")
+                call = self.phone.call(PHONE_EXTENSION)
+                if call:
+                    logger.info("Auto-call initiated — waiting for answer")
+                    self.call_handler.handle_greeting_call(call)
+                    return  # Success or handled
+                else:
+                    logger.warning(f"Auto-call attempt {attempt} returned no call object")
+            except Exception as e:
+                logger.error(f"Auto-call attempt {attempt} failed: {e}")
 
-        except Exception as e:
-            logger.error(f"Auto-call failed: {e}")
+            time.sleep(3)  # Wait before retry
+
+        logger.warning("Auto-call failed after 3 attempts. User can still dial 100.")
 
     def stop(self):
         """Graceful shutdown."""

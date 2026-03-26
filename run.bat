@@ -1,6 +1,5 @@
 @echo off
-title Voice Dispatch System
+title Voice Dispatch — Control Panel
 cd /d "%~dp0"
-call venv\Scripts\activate.bat
-python -m voice_dispatch.watchdog_runner
+powershell -ExecutionPolicy Bypass -File run.ps1
 pause
