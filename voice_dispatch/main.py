@@ -180,7 +180,7 @@ class VoiceDispatchSystem:
             from pyVoIP.VoIP.VoIP import CallState  # noqa: F401
 
             self.phone = VoIPPhone(
-                server="127.0.0.1",
+                server=LAN_IP,
                 port=SIP_PORT,
                 username=DISPATCH_EXTENSION,
                 password=DISPATCH_PASSWORD,
@@ -199,7 +199,7 @@ class VoiceDispatchSystem:
                 from pyVoIP.VoIP import VoIPPhone
 
                 self.phone = VoIPPhone(
-                    server="127.0.0.1",
+                    server=LAN_IP,
                     port=SIP_PORT,
                     username=DISPATCH_EXTENSION,
                     password=DISPATCH_PASSWORD,
