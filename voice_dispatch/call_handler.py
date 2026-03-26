@@ -76,13 +76,28 @@ class CallHandler:
             self._speak(call, "Voice dispatch online. Go ahead.", session)
 
             # Main conversation loop
+            chunk_count = 0
+            audio_debug_interval = 50  # log every ~1 second (50 x 20ms)
             while call.state == CallState.ANSWERED:
                 try:
                     # Read audio from SIP (20ms chunks)
                     raw_audio = call.read_audio(length=SIP_CHUNK_SIZE, blocking=True)
 
                     if not raw_audio or len(raw_audio) == 0:
+                        if chunk_count == 0:
+                            logger.warning("read_audio returned empty — no RTP audio incoming")
                         continue
+
+                    chunk_count += 1
+
+                    # Debug: log audio levels periodically
+                    if chunk_count % audio_debug_interval == 1:
+                        from voice_dispatch.audio_utils import compute_rms
+                        rms = compute_rms(raw_audio, 1)
+                        logger.info(
+                            f"Audio in: chunk #{chunk_count}, {len(raw_audio)} bytes, "
+                            f"RMS={rms}, speaking={self.vad.is_speaking}"
+                        )
 
                     # Log raw audio
                     session.add_audio(raw_audio)

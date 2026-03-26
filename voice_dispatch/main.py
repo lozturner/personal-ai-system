@@ -103,8 +103,11 @@ class VoiceDispatchSystem:
         print(banner)
         logger.info("Starting Voice Dispatch System...")
 
-        # 1. Start SIP Registrar
+        # 1. Start SIP Registrar + set auto-call callback EARLY
+        #    (phone may register before models finish loading)
         self._start_registrar()
+        if AUTO_CALL_ON_START:
+            self.registrar.set_phone_registered_callback(self._auto_call)
 
         # 2. Load AI models (parallel)
         self._load_models()
@@ -115,9 +118,10 @@ class VoiceDispatchSystem:
         # 4. Start pyVoIP phone
         self._start_voip()
 
-        # 5. Auto-call if enabled
-        if AUTO_CALL_ON_START:
-            self.registrar.set_phone_registered_callback(self._auto_call)
+        # 5. If phone already registered while we were loading, auto-call now
+        if AUTO_CALL_ON_START and self.registrar.is_extension_registered(PHONE_EXTENSION):
+            logger.info("Phone already registered — triggering auto-call")
+            threading.Thread(target=self._auto_call, daemon=True).start()
 
         logger.info("System ready. Waiting for calls...")
         print(f"\n✓ System is LIVE. Call {LAN_IP} from your phone.")
@@ -231,12 +235,19 @@ class VoiceDispatchSystem:
 
     def _auto_call(self):
         """Auto-call the user's phone when it registers."""
-        logger.info("Phone registered! Initiating auto-call...")
-        time.sleep(2)  # Give the phone a moment to settle
+        logger.info("Phone registered! Waiting for system to be ready...")
+
+        # Wait for pyVoIP and call handler to be ready (models may still be loading)
+        for _ in range(60):  # wait up to 60 seconds
+            if self.phone is not None and self.call_handler is not None:
+                break
+            time.sleep(1)
+
+        time.sleep(2)  # Give everything a moment to settle
 
         try:
             if self.phone is None:
-                logger.warning("pyVoIP phone not ready for auto-call")
+                logger.warning("pyVoIP phone not ready for auto-call after 60s")
                 return
 
             # Call the phone extension
