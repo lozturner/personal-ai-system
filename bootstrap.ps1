@@ -537,66 +537,54 @@ try {
 # ═══════════════════════════════════════════════════════════════════
 Log-Step "10/10" "Running self-test..."
 
-$testScript = @'
+# Write test to a temp file — python -c mangles f-strings on Windows
+$testFile = Join-Path $ProjectRoot "_selftest.py"
+@'
 import sys
 results = []
-
-# Test 1: Config loads
 try:
     from voice_dispatch.config import LAN_IP, SIP_PORT
-    results.append(f"OK config (LAN={LAN_IP})")
+    results.append("OK config (LAN=" + str(LAN_IP) + ")")
 except Exception as e:
-    results.append(f"FAIL config: {e}")
-
-# Test 2: Audio utils
+    results.append("FAIL config: " + str(e))
 try:
     from voice_dispatch.audio_utils import sip_to_pcm16, tts_float_to_sip
     sip_to_pcm16(bytes([128]*160))
     results.append("OK audio_utils")
 except Exception as e:
-    results.append(f"FAIL audio_utils: {e}")
-
-# Test 3: SIP registrar
+    results.append("FAIL audio_utils: " + str(e))
 try:
     from voice_dispatch.sip_registrar import SIPRegistrar
     r = SIPRegistrar(host="127.0.0.1", port=0, lan_ip="127.0.0.1")
     results.append("OK sip_registrar")
 except Exception as e:
-    results.append(f"FAIL sip_registrar: {e}")
-
-# Test 4: Anthropic SDK
+    results.append("FAIL sip_registrar: " + str(e))
 try:
     import anthropic
     results.append("OK anthropic SDK")
 except Exception as e:
-    results.append(f"FAIL anthropic: {e}")
-
-# Test 5: PyTorch
+    results.append("FAIL anthropic: " + str(e))
 try:
     import torch
     cuda = "CUDA" if torch.cuda.is_available() else "CPU"
-    results.append(f"OK torch ({cuda})")
+    results.append("OK torch (" + cuda + ")")
 except Exception as e:
-    results.append(f"FAIL torch: {e}")
-
-# Test 6: pyVoIP
+    results.append("FAIL torch: " + str(e))
 try:
     import pyVoIP
-    results.append(f"OK pyVoIP v{pyVoIP.__version__}")
+    results.append("OK pyVoIP v" + str(pyVoIP.__version__))
 except Exception as e:
-    results.append(f"FAIL pyVoIP: {e}")
-
+    results.append("FAIL pyVoIP: " + str(e))
 for r in results:
-    print(f"  {r}")
-
+    print("  " + r)
 fails = [r for r in results if r.startswith("FAIL")]
 sys.exit(len(fails))
-'@
+'@ | Out-File -FilePath $testFile -Encoding UTF8
 
-& $pythonVenv -c $testScript
-$testFails = $LASTEXITCODE
-
-if ($testFails -eq 0) {
+& $pythonVenv $testFile
+$testFails2 = $LASTEXITCODE
+Remove-Item $testFile -ErrorAction SilentlyContinue
+if ($testFails2 -eq 0) {
     Log-OK "All self-tests passed"
 } else {
     Log-Warn "$testFails test(s) failed — check above"

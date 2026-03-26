@@ -176,37 +176,8 @@ class VoiceDispatchSystem:
         logger.info("Starting pyVoIP phone...")
 
         try:
-            from pyVoIP.VoIP.phone import VoIPPhone, VoIPPhoneParameter
-
-            params = VoIPPhoneParameter(
-                server="127.0.0.1",
-                port=SIP_PORT,
-                user=DISPATCH_EXTENSION,
-                credentials_manager=None,
-                myIP=LAN_IP,
-                sipPort=VOIP_SIP_PORT,
-                rtpPortLow=RTP_PORT_LOW,
-                rtpPortHigh=RTP_PORT_HIGH,
-            )
-            self.phone = VoIPPhone(params)
-
-            # Set the call callback
-            self.phone.set_callback(self._on_incoming_call)
-            self.phone.start()
-            logger.info(f"pyVoIP phone started on port {VOIP_SIP_PORT}")
-
-        except ImportError:
-            logger.error("pyVoIP not installed. Run: pip install pyVoIP")
-            raise
-        except Exception as e:
-            logger.error(f"Failed to start pyVoIP: {e}")
-            # Try legacy API
-            self._start_voip_legacy()
-
-    def _start_voip_legacy(self):
-        """Fallback for older pyVoIP versions."""
-        try:
             from pyVoIP.VoIP.VoIP import VoIPPhone
+            from pyVoIP.VoIP.VoIP import CallState  # noqa: F401
 
             self.phone = VoIPPhone(
                 server="127.0.0.1",
@@ -214,16 +185,37 @@ class VoiceDispatchSystem:
                 username=DISPATCH_EXTENSION,
                 password=DISPATCH_PASSWORD,
                 myIP=LAN_IP,
+                callCallback=self._on_incoming_call,
                 sipPort=VOIP_SIP_PORT,
                 rtpPortLow=RTP_PORT_LOW,
                 rtpPortHigh=RTP_PORT_HIGH,
-                callCallback=self._on_incoming_call,
             )
             self.phone.start()
-            logger.info(f"pyVoIP phone started (legacy API) on port {VOIP_SIP_PORT}")
+            logger.info(f"pyVoIP phone started on port {VOIP_SIP_PORT}")
 
+        except ImportError:
+            # Try alternate import path
+            try:
+                from pyVoIP.VoIP import VoIPPhone
+
+                self.phone = VoIPPhone(
+                    server="127.0.0.1",
+                    port=SIP_PORT,
+                    username=DISPATCH_EXTENSION,
+                    password=DISPATCH_PASSWORD,
+                    myIP=LAN_IP,
+                    callCallback=self._on_incoming_call,
+                    sipPort=VOIP_SIP_PORT,
+                    rtpPortLow=RTP_PORT_LOW,
+                    rtpPortHigh=RTP_PORT_HIGH,
+                )
+                self.phone.start()
+                logger.info(f"pyVoIP phone started on port {VOIP_SIP_PORT}")
+            except ImportError:
+                logger.error("pyVoIP not installed. Run: pip install pyVoIP")
+                raise
         except Exception as e:
-            logger.error(f"pyVoIP failed completely: {e}")
+            logger.error(f"Failed to start pyVoIP: {e}", exc_info=True)
             raise
 
     def _on_incoming_call(self, call):

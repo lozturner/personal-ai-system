@@ -14,6 +14,15 @@ import time
 import threading
 from typing import Optional
 
+# pyVoIP CallState — handle different import paths across versions
+try:
+    from pyVoIP.VoIP.VoIP import CallState
+except ImportError:
+    try:
+        from pyVoIP.VoIP.call import CallState
+    except ImportError:
+        from pyVoIP.VoIP import CallState
+
 from voice_dispatch.audio_utils import (
     sip_to_pcm16,
     tts_float_to_sip,
@@ -50,7 +59,6 @@ class CallHandler:
         Args:
             call: pyVoIP VoIPCall object
         """
-        from pyVoIP.VoIP.call import CallState
 
         self._active_calls += 1
         session = SessionLogger(caller_id="phone")
@@ -121,7 +129,6 @@ class CallHandler:
 
     def _process_utterance(self, call, utterance_pcm16: bytes, session: SessionLogger):
         """Process a complete utterance: STT → Brain → TTS → speak."""
-        from pyVoIP.VoIP.call import CallState
 
         if call.state != CallState.ANSWERED:
             return
@@ -150,7 +157,6 @@ class CallHandler:
 
     def _speak(self, call, text: str, session: Optional[SessionLogger] = None):
         """Synthesize text and play it over the SIP call."""
-        from pyVoIP.VoIP.call import CallState
 
         if call.state != CallState.ANSWERED:
             return
@@ -187,7 +193,6 @@ class CallHandler:
 
     def handle_greeting_call(self, call):
         """Handle the auto-call greeting (system startup notification)."""
-        from pyVoIP.VoIP.call import CallState
 
         try:
             call.answer()
