@@ -180,14 +180,22 @@ class CallHandler:
             start = time.time()
 
             # Synthesize
+            logger.info(f"Synthesizing: '{text[:60]}'")
             audio_float, sample_rate = self.tts.synthesize(text)
             synth_time = time.time() - start
 
             if len(audio_float) == 0:
+                logger.warning("TTS produced empty audio!")
                 return
+
+            logger.info(
+                f"TTS done: {len(audio_float)} samples at {sample_rate}Hz "
+                f"({synth_time:.1f}s), range=[{audio_float.min():.2f}, {audio_float.max():.2f}]"
+            )
 
             # Convert TTS output → SIP format (8-bit unsigned 8kHz)
             sip_audio = tts_float_to_sip(audio_float, source_rate=sample_rate)
+            logger.info(f"SIP audio: {len(sip_audio)} bytes, playing {len(sip_audio)//160} chunks")
 
             # Play in chunks matching SIP frame size
             chunks = chunk_audio(sip_audio, SIP_CHUNK_SIZE)

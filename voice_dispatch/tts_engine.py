@@ -44,16 +44,19 @@ class TTSEngine:
             logger.warning(f"Coqui TTS failed to load: {e}")
 
         # Fallback to pyttsx3
+        # NOTE: Do NOT create the engine here — pyttsx3 uses Windows COM (SAPI)
+        # which is apartment-threaded. The engine must be created in the same
+        # thread that will use it (the call handler thread). We just verify
+        # import works here, and create the engine lazily on first synthesize.
         if TTS_FALLBACK:
             try:
                 logger.info("Falling back to pyttsx3 (Windows SAPI)")
-                import pyttsx3
-                self._pyttsx_engine = pyttsx3.init()
-                self._pyttsx_engine.setProperty("rate", 170)
+                import pyttsx3  # noqa: F401 — just verify importable
+                self._pyttsx_engine = None  # created lazily in calling thread
                 self._using_fallback = True
                 self._loaded = True
                 self._sample_rate = 22050
-                logger.info("pyttsx3 loaded as fallback TTS")
+                logger.info("pyttsx3 available as fallback TTS (engine created on first use)")
                 return
             except Exception as e2:
                 logger.error(f"pyttsx3 also failed: {e2}")
