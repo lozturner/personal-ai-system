@@ -78,12 +78,15 @@ function Log-Fail {
 # ═══════════════════════════════════════════════════════════════════
 # STEP 1: PYTHON
 # ═══════════════════════════════════════════════════════════════════
-Log-Step "1/10" "Checking Python..."
+Log-Step "1/10" "Finding Python (deep scan)..."
 
 $python = $null
+$pythonExe = $null
 $needsAudioopLts = $false
 
-foreach ($cmd in @("python", "python3", "py -3.12", "py")) {
+# --- Phase 1: Try PATH-based commands first ---
+Write-Host "  Checking PATH..." -ForegroundColor Gray
+foreach ($cmd in @("python", "python3", "py -3.12", "py -3.11", "py -3.10", "py")) {
     try {
         $cmdParts = $cmd -split " "
         $ver = & $cmdParts[0] $cmdParts[1..($cmdParts.Length-1)] --version 2>&1
@@ -93,26 +96,195 @@ foreach ($cmd in @("python", "python3", "py -3.12", "py")) {
             if ($major -eq 3 -and $minor -ge 10) {
                 $python = $cmd
                 if ($minor -ge 13) { $needsAudioopLts = $true }
-                Log-OK "Found $ver"
+                Log-OK "Found $ver on PATH ($cmd)"
                 break
             }
         }
     } catch {}
 }
 
+# --- Phase 2: Deep filesystem scan if PATH failed ---
 if (-not $python) {
-    Log-Fail "Python 3.10+ not found."
+    Write-Host "  Not on PATH. Scanning filesystem for python.exe..." -ForegroundColor Gray
+
+    # Every known location Python might be on Windows
+    $searchPaths = @(
+        # Standard Python.org installs
+        "$env:LOCALAPPDATA\Programs\Python\Python312\python.exe",
+        "$env:LOCALAPPDATA\Programs\Python\Python311\python.exe",
+        "$env:LOCALAPPDATA\Programs\Python\Python310\python.exe",
+        "$env:LOCALAPPDATA\Programs\Python\Python313\python.exe",
+        "$env:LOCALAPPDATA\Programs\Python\Python314\python.exe",
+        # All-users installs
+        "C:\Python312\python.exe",
+        "C:\Python311\python.exe",
+        "C:\Python310\python.exe",
+        "C:\Python313\python.exe",
+        "C:\Program Files\Python312\python.exe",
+        "C:\Program Files\Python311\python.exe",
+        "C:\Program Files\Python310\python.exe",
+        "C:\Program Files\Python313\python.exe",
+        "C:\Program Files (x86)\Python312\python.exe",
+        "C:\Program Files (x86)\Python311\python.exe",
+        # Winget / Microsoft Store installs
+        "$env:LOCALAPPDATA\Microsoft\WindowsApps\python.exe",
+        "$env:LOCALAPPDATA\Microsoft\WindowsApps\python3.exe",
+        "$env:LOCALAPPDATA\Microsoft\WindowsApps\python3.12.exe",
+        # Scoop
+        "$env:USERPROFILE\scoop\apps\python\current\python.exe",
+        # Chocolatey
+        "C:\Python312\python.exe",
+        "C:\tools\python3\python.exe",
+        # Anaconda / Miniconda
+        "$env:USERPROFILE\anaconda3\python.exe",
+        "$env:USERPROFILE\miniconda3\python.exe",
+        "$env:LOCALAPPDATA\anaconda3\python.exe",
+        "$env:LOCALAPPDATA\miniconda3\python.exe",
+        "C:\ProgramData\anaconda3\python.exe",
+        "C:\ProgramData\miniconda3\python.exe",
+        # pyenv-win
+        "$env:USERPROFILE\.pyenv\pyenv-win\versions\3.12*\python.exe",
+        "$env:USERPROFILE\.pyenv\pyenv-win\versions\3.11*\python.exe",
+        "$env:USERPROFILE\.pyenv\pyenv-win\versions\3.10*\python.exe"
+    )
+
+    # Also do a wildcard scan of common parent dirs
+    $wildcardDirs = @(
+        "$env:LOCALAPPDATA\Programs\Python",
+        "C:\Program Files",
+        "C:\Program Files (x86)",
+        "$env:USERPROFILE\.pyenv\pyenv-win\versions",
+        "$env:USERPROFILE\scoop\apps\python"
+    )
+    foreach ($dir in $wildcardDirs) {
+        if (Test-Path $dir) {
+            Get-ChildItem -Path $dir -Filter "python.exe" -Recurse -Depth 3 -ErrorAction SilentlyContinue | ForEach-Object {
+                $searchPaths += $_.FullName
+            }
+        }
+    }
+
+    # Also check Windows Registry for installed Pythons
+    $regPaths = @(
+        "HKLM:\SOFTWARE\Python\PythonCore",
+        "HKCU:\SOFTWARE\Python\PythonCore",
+        "HKLM:\SOFTWARE\WOW6432Node\Python\PythonCore"
+    )
+    foreach ($regPath in $regPaths) {
+        if (Test-Path $regPath) {
+            Get-ChildItem $regPath -ErrorAction SilentlyContinue | ForEach-Object {
+                $installPath = (Get-ItemProperty "$($_.PSPath)\InstallPath" -ErrorAction SilentlyContinue).'(default)'
+                if ($installPath) {
+                    $searchPaths += Join-Path $installPath "python.exe"
+                }
+                $exePath = (Get-ItemProperty "$($_.PSPath)\InstallPath" -ErrorAction SilentlyContinue).ExecutablePath
+                if ($exePath) {
+                    $searchPaths += $exePath
+                }
+            }
+        }
+    }
+
+    # Deduplicate and resolve wildcards
+    $candidates = @()
+    foreach ($p in ($searchPaths | Select-Object -Unique)) {
+        if ($p -match "\*") {
+            Resolve-Path $p -ErrorAction SilentlyContinue | ForEach-Object { $candidates += $_.Path }
+        } elseif (Test-Path $p) {
+            $candidates += $p
+        }
+    }
+
+    Write-Host "  Found $($candidates.Count) python.exe candidate(s)" -ForegroundColor Gray
+
+    # Test each candidate — prefer 3.12, then 3.11, then 3.10, then 3.13+
+    $best = $null
+    $bestMinor = 0
+    foreach ($exe in $candidates) {
+        try {
+            $ver = & $exe --version 2>&1
+            if ($ver -match "Python (\d+)\.(\d+)\.(\d+)") {
+                $major = [int]$Matches[1]
+                $minor = [int]$Matches[2]
+                if ($major -eq 3 -and $minor -ge 10) {
+                    Write-Host "  Found: $ver at $exe" -ForegroundColor Gray
+                    # Prefer 3.12 > 3.11 > 3.10 > 3.13+
+                    $score = switch ($minor) { 12 { 100 }; 11 { 90 }; 10 { 80 }; default { 70 } }
+                    if ($score -gt $bestMinor) {
+                        $best = $exe
+                        $bestMinor = $score
+                        $bestVer = $ver
+                        $bestActualMinor = $minor
+                    }
+                }
+            }
+        } catch {}
+    }
+
+    if ($best) {
+        $pythonExe = $best
+        $python = "`"$best`""
+        if ($bestActualMinor -ge 13) { $needsAudioopLts = $true }
+        Log-OK "Found $bestVer at $best"
+
+        # Add to session PATH so venv creation works
+        $pythonDir = Split-Path -Parent $best
+        $env:PATH = "$pythonDir;$env:PATH"
+    }
+}
+
+# --- Phase 3: Winget install as last resort ---
+if (-not $python) {
+    Log-Warn "No Python 3.10+ found anywhere on disk."
     Write-Host ""
-    Write-Host "  Attempting automatic Python 3.12 install via winget..." -ForegroundColor Yellow
+    Write-Host "  Attempting winget install..." -ForegroundColor Yellow
 
     try {
-        winget install Python.Python.3.12 --accept-package-agreements --accept-source-agreements
-        $python = "py -3.12"
-        # Refresh PATH
+        winget install Python.Python.3.12 --accept-package-agreements --accept-source-agreements --source winget 2>$null
+        # Refresh PATH from registry
         $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("PATH", "User")
-        Log-OK "Python 3.12 installed via winget"
+
+        # Find the freshly installed Python
+        $freshPaths = @(
+            "$env:LOCALAPPDATA\Programs\Python\Python312\python.exe",
+            "C:\Python312\python.exe"
+        )
+        foreach ($fp in $freshPaths) {
+            if (Test-Path $fp) {
+                $pythonExe = $fp
+                $python = "`"$fp`""
+                $pythonDir = Split-Path -Parent $fp
+                $env:PATH = "$pythonDir;$env:PATH"
+                break
+            }
+        }
+
+        # Also try PATH commands after refresh
+        if (-not $python) {
+            foreach ($cmd in @("python", "py -3.12", "py")) {
+                try {
+                    $cmdParts = $cmd -split " "
+                    $ver = & $cmdParts[0] $cmdParts[1..($cmdParts.Length-1)] --version 2>&1
+                    if ($ver -match "Python 3\.\d+") {
+                        $python = $cmd
+                        break
+                    }
+                } catch {}
+            }
+        }
+
+        if ($python) {
+            Log-OK "Python installed via winget"
+        } else {
+            Log-Fail "Winget installed Python but can't find it. Restart PowerShell and re-run."
+            exit 1
+        }
     } catch {
-        Log-Fail "Could not auto-install Python. Install Python 3.12 from python.org and re-run."
+        Log-Fail "No Python found and winget failed."
+        Write-Host ""
+        Write-Host "  Download Python 3.12 from: https://www.python.org/downloads/" -ForegroundColor Cyan
+        Write-Host "  IMPORTANT: Check 'Add Python to PATH' during install." -ForegroundColor Cyan
+        Write-Host "  Then restart PowerShell and re-run this script." -ForegroundColor Cyan
         exit 1
     }
 }
@@ -129,10 +301,18 @@ $pip = Join-Path $venvPath "Scripts\pip.exe"
 if (Test-Path $pythonVenv) {
     Log-OK "venv exists, reusing"
 } else {
-    $cmdParts = $python -split " "
-    & $cmdParts[0] $cmdParts[1..($cmdParts.Length-1)] -m venv $venvPath
+    # Use the direct exe path if we found one, otherwise parse the command
+    if ($pythonExe -and (Test-Path $pythonExe)) {
+        Write-Host "  Creating venv with: $pythonExe" -ForegroundColor Gray
+        & $pythonExe -m venv $venvPath
+    } else {
+        $cmdParts = $python -split " "
+        & $cmdParts[0] $cmdParts[1..($cmdParts.Length-1)] -m venv $venvPath
+    }
     if (-not (Test-Path $pythonVenv)) {
         Log-Fail "Failed to create venv"
+        Write-Host "  Python used: $python" -ForegroundColor Red
+        Write-Host "  Try: open new PowerShell, run: python -m venv venv" -ForegroundColor Red
         exit 1
     }
     Log-OK "Created venv"
