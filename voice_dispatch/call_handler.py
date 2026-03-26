@@ -207,10 +207,30 @@ class CallHandler:
             logger.error(f"TTS playback error: {e}", exc_info=True)
 
     def handle_greeting_call(self, call):
-        """Handle the auto-call greeting (system startup notification)."""
+        """Handle the auto-call greeting (outbound call to user's phone)."""
 
         try:
-            call.answer()
+            # This is an OUTBOUND call — don't call answer().
+            # Wait for the phone to pick up (state goes from DIALING → ANSWERED)
+            logger.info("Auto-call: waiting for phone to pick up...")
+            wait_start = time.time()
+            while time.time() - wait_start < 30:  # 30 second ring timeout
+                if call.state == CallState.ANSWERED:
+                    break
+                if call.state == CallState.ENDED:
+                    logger.info("Auto-call: phone declined or timed out")
+                    return
+                time.sleep(0.2)
+
+            if call.state != CallState.ANSWERED:
+                logger.warning("Auto-call: phone didn't answer within 30s")
+                try:
+                    call.hangup()
+                except Exception:
+                    pass
+                return
+
+            logger.info("Auto-call: phone answered!")
             time.sleep(0.5)  # Give the phone a moment
             self._speak(call, "Voice dispatch is online and ready. You can hang up now, or speak a command.")
 
