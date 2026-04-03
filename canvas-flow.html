@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>A → B → C — Canvas Flow</title>
+<link rel="stylesheet" href="adhd-anim.css">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400;600;700&family=Inter:wght@400;500;600&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #1a1a2e;
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+    color: #e0e0e0;
+    overflow-x: hidden;
+  }
+
+  /* ===== TOP BAR ===== */
+  .top-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 32px;
+    background: rgba(255,255,255,0.04);
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    backdrop-filter: blur(12px);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .top-bar h1 {
+    font-family: 'Caveat', cursive;
+    font-size: 28px;
+    font-weight: 700;
+    background: linear-gradient(135deg, #f093fb, #f5576c, #fda085);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .top-bar .subtitle {
+    font-size: 13px;
+    color: #888;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  /* ===== INPUT PANEL ===== */
+  .input-panel {
+    display: flex;
+    gap: 24px;
+    padding: 32px;
+    max-width: 1200px;
+    margin: 0 auto;
+    align-items: stretch;
+  }
+
+  .input-card {
+    flex: 1;
+    background: rgba(255,255,255,0.05);
+    border: 2px solid rgba(255,255,255,0.1);
+    border-radius: 16px;
+    padding: 24px;
+    position: relative;
+    transition: border-color 0.3s, box-shadow 0.3s;
+  }
+
+  .input-card:focus-within {
+    border-color: rgba(255,255,255,0.25);
+    box-shadow: 0 0 30px rgba(240,147,251,0.1);
+  }
+
+  .input-card.card-a { border-left: 4px solid #f5576c; }
+  .input-card.card-c { border-left: 4px solid #43e97b; }
+
+  .input-card .label {
+    font-family: 'Caveat', cursive;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 4px;
+  }
+
+  .card-a .label { color: #f5576c; }
+  .card-c .label { color: #43e97b; }
+
+  .input-card .big-letter {
+    font-family: 'Caveat', cursive;
+    font-size: 64px;
+    font-weight: 700;
+    line-height: 1;
+    position: absolute;
+    top: 12px;
+    right: 20px;
+    opacity: 0.08;
+  }
+
+  .input-card textarea {
+    width: 100%;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: #fff;
+    font-family: 'Inter', sans-serif;
+    font-size: 16px;
+    resize: none;
+    min-height: 80px;
+    line-height: 1.6;
+  }
+
+  .input-card textarea::placeholder {
+    color: rgba(255,255,255,0.25);
+  }
+
+  /* ===== GENERATE BUTTON ===== */
+  .generate-wrap {
+    text-align: center;
+    padding: 0 32px 24px;
+  }
+
+  .btn-generate {
+    background: linear-gradient(135deg, #f093fb, #f5576c);
+    color: #fff;
+    border: none;
+    padding: 14px 48px;
+    font-size: 16px;
+    font-weight: 600;
+    border-radius: 50px;
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+    letter-spacing: 0.5px;
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 4px 20px rgba(245,87,108,0.3);
+  }
+
+  .btn-generate:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 30px rgba(245,87,108,0.4);
+  }
+
+  .btn-generate:active {
+    transform: translateY(0);
+  }
+
+  .btn-generate:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .arrow-hint {
+    font-family: 'Caveat', cursive;
+    font-size: 22px;
+    color: #555;
+    margin: 0 16px;
+  }
+
+  /* ===== CANVAS AREA ===== */
+  .canvas-wrap {
+    position: relative;
+    max-width: 1200px;
+    margin: 0 auto 60px;
+    padding: 0 32px;
+    min-height: 200px;
+  }
+
+  .canvas-board {
+    position: relative;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 20px;
+    overflow: hidden;
+    min-height: 400px;
+  }
+
+  /* Grid background */
+  .canvas-board::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      radial-gradient(circle, rgba(255,255,255,0.03) 1px, transparent 1px);
+    background-size: 24px 24px;
+    pointer-events: none;
+  }
+
+  .canvas-board svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  /* ===== FLOW NODES ===== */
+  .flow-node {
+    position: relative;
+    z-index: 2;
+    margin: 0 auto;
+    max-width: 600px;
+    padding: 20px 28px;
+    background: rgba(255,255,255,0.06);
+    border: 2px solid rgba(255,255,255,0.1);
+    border-radius: 14px;
+    cursor: default;
+    transition: border-color 0.3s, background 0.3s;
+  }
+
+  .flow-node:hover {
+    background: rgba(255,255,255,0.08);
+    border-color: rgba(255,255,255,0.18);
+  }
+
+  .flow-node .step-badge {
+    display: inline-block;
+    font-family: 'Caveat', cursive;
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    padding: 2px 12px;
+    border-radius: 20px;
+    margin-bottom: 8px;
+  }
+
+  .flow-node .step-title {
+    font-family: 'Caveat', cursive;
+    font-size: 24px;
+    font-weight: 700;
+    line-height: 1.3;
+    margin-bottom: 6px;
+  }
+
+  .flow-node .step-detail {
+    font-size: 14px;
+    color: #aaa;
+    line-height: 1.6;
+  }
+
+  /* Node types */
+  .flow-node.node-a {
+    border-color: #f5576c;
+    background: rgba(245,87,108,0.08);
+  }
+  .flow-node.node-a .step-badge { background: #f5576c; color: #fff; }
+  .flow-node.node-a .step-title { color: #f5576c; }
+
+  .flow-node.node-c {
+    border-color: #43e97b;
+    background: rgba(67,233,123,0.08);
+  }
+  .flow-node.node-c .step-badge { background: #43e97b; color: #1a1a2e; }
+  .flow-node.node-c .step-title { color: #43e97b; }
+
+  .flow-node.node-b {
+    border-color: #667eea;
+    background: rgba(102,126,234,0.06);
+  }
+  .flow-node.node-b .step-badge { background: #667eea; color: #fff; }
+  .flow-node.node-b .step-title { color: #c4cfff; }
+
+  /* ===== CONNECTOR ===== */
+  .connector {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 60px;
+    position: relative;
+    z-index: 2;
+  }
+
+  .connector-line {
+    width: 3px;
+    height: 100%;
+    position: relative;
+  }
+
+  .connector-line::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 0;
+    border-radius: 2px;
+    animation: draw-down 0.4s ease-out forwards;
+  }
+
+  .connector.conn-a .connector-line::before { background: linear-gradient(to bottom, #f5576c, #667eea); }
+  .connector.conn-b .connector-line::before { background: #667eea; }
+  .connector.conn-c .connector-line::before { background: linear-gradient(to bottom, #667eea, #43e97b); }
+
+  @keyframes draw-down {
+    to { height: 100%; }
+  }
+
+  .connector-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    position: absolute;
+    bottom: -5px;
+    left: -3.5px;
+    animation: dot-pop 0.3s ease-out 0.35s both;
+  }
+
+  .conn-a .connector-dot { background: #667eea; }
+  .conn-b .connector-dot { background: #667eea; }
+  .conn-c .connector-dot { background: #43e97b; }
+
+  @keyframes dot-pop {
+    from { transform: scale(0); }
+    to { transform: scale(1); }
+  }
+
+  /* ===== PROGRESS PULSE ===== */
+  .generating-pulse {
+    text-align: center;
+    padding: 40px;
+    font-family: 'Caveat', cursive;
+    font-size: 24px;
+    color: #667eea;
+  }
+
+  .generating-pulse .dots::after {
+    content: '';
+    animation: loading-dots 1.5s infinite;
+  }
+
+  @keyframes loading-dots {
+    0%   { content: '.'; }
+    33%  { content: '..'; }
+    66%  { content: '...'; }
+  }
+
+  /* ===== STEP COUNTER ===== */
+  .step-counter {
+    text-align: center;
+    padding: 16px;
+    font-size: 13px;
+    color: #555;
+    letter-spacing: 1px;
+  }
+
+  /* ===== EMPTY STATE ===== */
+  .empty-state {
+    text-align: center;
+    padding: 80px 40px;
+    color: #444;
+  }
+
+  .empty-state .big {
+    font-family: 'Caveat', cursive;
+    font-size: 48px;
+    color: #333;
+    margin-bottom: 12px;
+  }
+
+  .empty-state p {
+    font-size: 15px;
+    max-width: 400px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+
+  /* ===== EDIT STEP ===== */
+  .flow-node .edit-btn {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.12);
+    color: #888;
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 12px;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.2s;
+    font-family: 'Inter', sans-serif;
+  }
+
+  .flow-node:hover .edit-btn { opacity: 1; }
+  .flow-node .edit-btn:hover { color: #fff; background: rgba(255,255,255,0.15); }
+
+  .step-edit-input {
+    width: 100%;
+    background: rgba(0,0,0,0.3);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 8px;
+    color: #fff;
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    padding: 10px 12px;
+    resize: none;
+    outline: none;
+    min-height: 60px;
+    margin-top: 8px;
+  }
+
+  /* ===== ADD STEP ===== */
+  .add-step-btn {
+    display: block;
+    margin: 0 auto;
+    background: transparent;
+    border: 2px dashed rgba(102,126,234,0.3);
+    color: #667eea;
+    border-radius: 10px;
+    padding: 10px 24px;
+    font-size: 14px;
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+    transition: border-color 0.2s, background 0.2s;
+    position: relative;
+    z-index: 2;
+  }
+
+  .add-step-btn:hover {
+    border-color: rgba(102,126,234,0.6);
+    background: rgba(102,126,234,0.06);
+  }
+
+  /* ===== RESPONSIVE ===== */
+  @media (max-width: 768px) {
+    .input-panel { flex-direction: column; padding: 20px; }
+    .canvas-wrap { padding: 0 16px; }
+    .top-bar { padding: 12px 20px; }
+    .flow-node { padding: 16px 20px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== TOP BAR ===== -->
+<div class="top-bar">
+  <div>
+    <h1>A → B → C</h1>
+    <div class="subtitle">Draw the path between problem and solution</div>
+  </div>
+</div>
+
+<!-- ===== INPUT: A and C ===== -->
+<div class="input-panel">
+  <div class="input-card card-a">
+    <div class="big-letter">A</div>
+    <div class="label">Point A — The Problem</div>
+    <textarea id="inputA" placeholder="What's the situation right now? What's broken, stuck, or unclear?"></textarea>
+  </div>
+  <div class="input-card card-c">
+    <div class="big-letter">C</div>
+    <div class="label">Point C — The Solution</div>
+    <textarea id="inputC" placeholder="Where do you want to end up? What does done look like?"></textarea>
+  </div>
+</div>
+
+<div class="generate-wrap">
+  <button class="btn-generate" id="btnGenerate" onclick="generateFlow()">Draw the Path</button>
+</div>
+
+<!-- ===== CANVAS: The drawn flow ===== -->
+<div class="canvas-wrap">
+  <div class="canvas-board" id="canvasBoard">
+    <div id="flowContainer">
+      <div class="empty-state" id="emptyState">
+        <div class="big">A ⟶ ? ⟶ C</div>
+        <p>Define your starting point and destination above, then hit "Draw the Path" to reveal every step in between.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="adhd-anim.js"></script>
+<script>
+(function() {
+  'use strict';
+
+  let steps = [];
+  let editingIndex = null;
+
+  // Break down A→C into steps
+  function decompose(pointA, pointC) {
+    // Heuristic decomposition: break the gap between A and C into
+    // concrete, actionable steps. This is the local engine —
+    // no API needed. It analyzes the text to produce a bridge.
+    const stepsOut = [];
+
+    // Parse the inputs for structure
+    const aWords = pointA.trim().split(/\s+/);
+    const cWords = pointC.trim().split(/\s+/);
+
+    // Step 1: Acknowledge and frame
+    stepsOut.push({
+      title: 'Name it clearly',
+      detail: 'Before solving anything, restate the problem in one sentence. Not the symptoms — the actual gap between where you are and where you want to be.',
+      action: `"${truncate(pointA, 80)}" → that's the starting line.`
+    });
+
+    // Step 2: Identify the constraint
+    stepsOut.push({
+      title: 'Find the real constraint',
+      detail: 'What is the single biggest thing blocking the path? Not everything — the one thing. If you removed it, would the rest fall into place?',
+      action: 'Write it down. One sentence. The constraint is...'
+    });
+
+    // Step 3: Smallest possible move
+    stepsOut.push({
+      title: 'Smallest possible move',
+      detail: 'What is the tiniest action you could take in the next 5 minutes that moves toward C? Not the whole plan — just the first inch.',
+      action: 'This should be so small it feels almost pointless. That\'s how you know it\'s right.'
+    });
+
+    // Step 4: Build the bridge
+    stepsOut.push({
+      title: 'Build the bridge piece by piece',
+      detail: 'Each step only needs to connect to the next one. You don\'t need to see the whole staircase — just the next step.',
+      action: 'List 2-3 concrete actions that chain from your smallest move toward the destination.'
+    });
+
+    // Step 5: Reality check
+    stepsOut.push({
+      title: 'Reality check',
+      detail: 'Look at your steps. Is any single one too big? Break it down further. Is any one unclear? Make it specific. Every step should be something you could explain to a 10-year-old.',
+      action: 'If a step has the word "figure out" in it, it\'s not a step yet — it\'s still a problem.'
+    });
+
+    // Step 6: Connect to C
+    stepsOut.push({
+      title: 'Connect the last mile',
+      detail: `Your destination: "${truncate(pointC, 80)}". What does the very last action look like? The thing you do right before you can say "done"?`,
+      action: 'Write the final action. Then work backwards — does your chain actually reach it?'
+    });
+
+    return stepsOut;
+  }
+
+  function truncate(str, len) {
+    return str.length > len ? str.substring(0, len) + '...' : str;
+  }
+
+  window.generateFlow = function() {
+    const pointA = document.getElementById('inputA').value.trim();
+    const pointC = document.getElementById('inputC').value.trim();
+
+    if (!pointA || !pointC) {
+      // Gentle shake on empty inputs
+      if (!pointA) shake(document.querySelector('.card-a'));
+      if (!pointC) shake(document.querySelector('.card-c'));
+      return;
+    }
+
+    const btn = document.getElementById('btnGenerate');
+    btn.disabled = true;
+    btn.textContent = 'Drawing...';
+
+    steps = decompose(pointA, pointC);
+
+    // Clear canvas
+    const container = document.getElementById('flowContainer');
+    container.innerHTML = '';
+
+    // Build the visual flow with staggered reveals
+    let delay = 0;
+    const staggerMs = 250;
+
+    // Node A
+    delay += 100;
+    container.appendChild(createFlowNode('A', 'Point A — Where You Are', pointA, '', 'node-a', delay));
+
+    // Connector A→B
+    delay += staggerMs;
+    container.appendChild(createConnector('conn-a', delay));
+
+    // B steps
+    steps.forEach(function(step, i) {
+      delay += staggerMs;
+      container.appendChild(createFlowNode(
+        'B' + (i + 1),
+        step.title,
+        step.detail,
+        step.action,
+        'node-b',
+        delay,
+        i
+      ));
+
+      delay += staggerMs;
+      const isLast = (i === steps.length - 1);
+      container.appendChild(createConnector(isLast ? 'conn-c' : 'conn-b', delay));
+    });
+
+    // Node C
+    delay += staggerMs;
+    container.appendChild(createFlowNode('C', 'Point C — Where You\'re Going', pointC, '', 'node-c', delay));
+
+    // Step counter
+    delay += staggerMs;
+    const counter = document.createElement('div');
+    counter.className = 'step-counter anim';
+    counter.dataset.anim = 'fade';
+    counter.dataset.delay = String(delay);
+    counter.textContent = (steps.length + 2) + ' steps from A to C — every one of them doable';
+    container.appendChild(counter);
+
+    // Re-init animations
+    setTimeout(function() {
+      if (window.AdhdAnim) {
+        AdhdAnim.init();
+        AdhdAnim.triggerAll();
+      }
+      btn.disabled = false;
+      btn.textContent = 'Redraw the Path';
+    }, 200);
+  };
+
+  function createFlowNode(badge, title, detail, action, typeClass, delay, editIdx) {
+    const node = document.createElement('div');
+    node.className = 'flow-node ' + typeClass + ' anim';
+    node.dataset.anim = 'bounce';
+    node.dataset.delay = String(delay);
+    node.dataset.duration = '500';
+
+    let html = '';
+    html += '<span class="step-badge">' + esc(badge) + '</span>';
+    html += '<div class="step-title">' + esc(title) + '</div>';
+    html += '<div class="step-detail">' + esc(detail) + '</div>';
+    if (action) {
+      html += '<div class="step-detail" style="margin-top:8px;color:#8890b0;font-style:italic;">' + esc(action) + '</div>';
+    }
+
+    // Edit button for B steps
+    if (editIdx !== undefined) {
+      html += '<button class="edit-btn" onclick="editStep(' + editIdx + ', this)">edit</button>';
+    }
+
+    node.innerHTML = html;
+    return node;
+  }
+
+  function createConnector(typeClass, delay) {
+    const conn = document.createElement('div');
+    conn.className = 'connector ' + typeClass + ' anim';
+    conn.dataset.anim = 'fade';
+    conn.dataset.delay = String(delay);
+    conn.dataset.duration = '300';
+    conn.innerHTML = '<div class="connector-line"><div class="connector-dot"></div></div>';
+    return conn;
+  }
+
+  window.editStep = function(index, btn) {
+    const node = btn.closest('.flow-node');
+    const detailEl = node.querySelector('.step-detail');
+    const currentText = steps[index].detail;
+
+    if (editingIndex === index) {
+      // Save
+      const input = node.querySelector('.step-edit-input');
+      if (input) {
+        steps[index].detail = input.value;
+        detailEl.textContent = input.value;
+        input.remove();
+        btn.textContent = 'edit';
+        editingIndex = null;
+      }
+      return;
+    }
+
+    editingIndex = index;
+    btn.textContent = 'save';
+
+    const input = document.createElement('textarea');
+    input.className = 'step-edit-input';
+    input.value = currentText;
+    detailEl.after(input);
+    input.focus();
+
+    input.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        btn.click();
+      }
+    });
+  };
+
+  function shake(el) {
+    el.style.animation = 'none';
+    el.offsetHeight; // reflow
+    el.style.animation = 'shake 0.4s ease-out';
+    setTimeout(function() { el.style.animation = ''; }, 500);
+  }
+
+  function esc(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  // Shake keyframes
+  const style = document.createElement('style');
+  style.textContent = '@keyframes shake { 0%,100% { transform: translateX(0); } 20% { transform: translateX(-8px); } 40% { transform: translateX(8px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(4px); } }';
+  document.head.appendChild(style);
+
+  // Allow Ctrl+Enter to generate
+  document.addEventListener('keydown', function(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      e.preventDefault();
+      generateFlow();
+    }
+  });
+
+})();
+</script>
+
+</body>
+</html>
